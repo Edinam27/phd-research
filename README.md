@@ -105,7 +105,7 @@ The default configuration is deliberately cheap-but-grounded:
 - **Repair and formatting** run on `gemini-2.5-flash-lite`.
 - Every call is costed from a price table and written to the `ai_runs` ledger, so the **Cost & usage** page shows exactly what each feature spends. Set the model variables to your own trade-off at any time — no code changes.
 
-File parsing is in-memory only (`unpdf` for PDF, `mammoth` for DOCX); uploaded articles are never written to disk or object storage. Only the extracted text you choose to keep, and the resulting review, are stored.
+**PDFs are read in your browser, not uploaded.** A journal PDF is heavy because of its embedded figures — the text inside is a small fraction of the file. `pdfjs-dist` rebuilds that text client-side (lazily, so it stays out of the shared bundle) and only the text is sent to the server; a 6 MB paper arrives as ~100 KB. This keeps every upload inside the request-body cap of serverless hosts such as Vercel (~4.5 MB) and never moves the binary. DOCX and TXT still go to the server, where parsing is in-memory only (`mammoth` for DOCX, `unpdf` for PDF). Nothing is written to disk or object storage. Only the extracted text you choose to keep, and the resulting review, are stored.
 
 ## 7. Project layout
 
@@ -123,6 +123,9 @@ src/
   lib/
     taxonomy.ts        the 11 TAXONOMY.xlsx columns, verbatim
     guideline.ts       section templates, word budgets, checklists
+    extract.ts         server-side DOCX/text parsing (in-memory)
+    upload.ts          browser-side PDF text rebuild before upload
+    text.ts            shared text clean-up (no server deps)
     ai/                provider, prompts, review mapping
     validation.ts      Zod schemas for every endpoint
 ```

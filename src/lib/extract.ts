@@ -1,3 +1,5 @@
+import { cleanText } from "@/lib/text";
+
 export type ExtractedDocument = {
   text: string;
   kind: "pdf" | "docx" | "text";
@@ -90,17 +92,4 @@ export async function extractDocument(file: {
     throw new ExtractionError(`"${file.name}" does not look like readable text.`);
   }
   return { text, kind: "text", filename: file.name };
-}
-
-/** Collapses PDF extraction artefacts without losing paragraph structure. */
-export function cleanText(raw: string): string {
-  return raw
-    .replace(/\r\n?/g, "\n")
-    .replace(/\u00ad/g, "")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .join("\n")
-    .trim();
 }

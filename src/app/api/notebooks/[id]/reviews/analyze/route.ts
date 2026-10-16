@@ -17,6 +17,11 @@ type Source = {
   kind: "pdf" | "docx" | "text" | "pasted";
 };
 
+/** Only the kinds the browser is allowed to claim; anything else reads as a paste. */
+function asKind(value: unknown): Source["kind"] {
+  return value === "pdf" || value === "docx" || value === "text" || value === "pasted" ? value : "pasted";
+}
+
 async function resolveSource(request: Request): Promise<{ source: Source; focusNote: string | null }> {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -53,14 +58,19 @@ async function resolveSource(request: Request): Promise<{ source: Source; focusN
     throw new ExtractionError("Attach a PDF or DOCX, or paste at least a paragraph of the article.");
   }
 
-  const body = await readJson<{ text?: string; filename?: string; focusNote?: string }>(request);
+  const body = await readJson<{ text?: string; filename?: string; kind?: string; focusNote?: string }>(request);
   if (!body.text || body.text.trim().length < 200) {
     throw new ExtractionError(
       "Paste at least a few paragraphs of the article (200+ characters) so the reviewer has something to work with.",
     );
   }
   return {
-    source: { text: body.text.trim(), filename: body.filename ?? null, kind: "pasted" },
+    // The browser already rebuilt a PDF into text, so it tells us what it read.
+    source: {
+      text: body.text.trim(),
+      filename: body.filename ?? null,
+      kind: asKind(body.kind),
+    },
     focusNote: body.focusNote?.trim() || null,
   };
 }

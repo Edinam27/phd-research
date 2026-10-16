@@ -34,6 +34,7 @@ import {
 import { ApiError, apiFetch, getJson, patchJson, postJson } from "@/lib/client";
 import { scoreReviewCompleteness, TAXONOMY_COLUMNS, type TaxonomyField } from "@/lib/taxonomy";
 import type { NotebookDetail, Review, Verdict } from "@/lib/types";
+import { ArticleReadError, prepareArticleFile } from "@/lib/upload";
 import { cn, formatUsd } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -170,13 +171,23 @@ export function ReviewStudio() {
     try {
       let result: AnalyzeResult;
       if (mode === "file" && file) {
-        const body = new FormData();
-        body.append("file", file);
-        if (focusNote.trim()) body.append("focusNote", focusNote.trim());
-        result = await apiFetch<AnalyzeResult>(`/api/notebooks/${notebookId}/reviews/analyze`, {
-          method: "POST",
-          body,
-        });
+        const prepared = await prepareArticleFile(file);
+        if (prepared.transport === "text") {
+          result = await postJson<AnalyzeResult>(`/api/notebooks/${notebookId}/reviews/analyze`, {
+            text: prepared.text,
+            filename: prepared.filename,
+            kind: prepared.kind,
+            focusNote: focusNote.trim() || undefined,
+          });
+        } else {
+          const body = new FormData();
+          body.append("file", prepared.file);
+          if (focusNote.trim()) body.append("focusNote", focusNote.trim());
+          result = await apiFetch<AnalyzeResult>(`/api/notebooks/${notebookId}/reviews/analyze`, {
+            method: "POST",
+            body,
+          });
+        }
       } else {
         result = await postJson<AnalyzeResult>(`/api/notebooks/${notebookId}/reviews/analyze`, {
           text: pasted.trim(),
@@ -192,7 +203,9 @@ export function ReviewStudio() {
       window.requestAnimationFrame(() => stepTwoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (thrown) {
       setAnalyzeError(
-        thrown instanceof ApiError ? thrown.message : "The reviewer could not read that article. Please try again.",
+        thrown instanceof ApiError || thrown instanceof ArticleReadError
+          ? thrown.message
+          : "The reviewer could not read that article. Please try again.",
       );
     } finally {
       setAnalyzing(false);
@@ -359,7 +372,7 @@ export function ReviewStudio() {
                 {mode === "file" ? (
                   <Field
                     label="Article file"
-                    hint="PDF, DOCX or TXT. The text is extracted on the server; only the file leaves your browser."
+                    hint="PDF, DOCX or TXT. A PDF is read in your browser, so only its text is uploaded — the file stays on your machine."
                   >
                     <input
                       type="file"

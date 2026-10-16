@@ -24,6 +24,7 @@ import {
 import { ApiError, apiFetch, deleteJson, getJson, patchJson, postJson } from "@/lib/client";
 import { averageAppraisal, scoreReviewCompleteness, TAXONOMY_COLUMNS, type TaxonomyColumn } from "@/lib/taxonomy";
 import type { NotebookDetail, Review, ReviewStatus, Verdict } from "@/lib/types";
+import { ArticleReadError, prepareArticleFile } from "@/lib/upload";
 import { cn, formatUsd } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -112,7 +113,7 @@ const COLUMN_COUNT = TAXONOMY_COLUMNS.length + 4;
 /* ------------------------------------------------------------------ */
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError ? error.message : fallback;
+  return error instanceof ApiError || error instanceof ArticleReadError ? error.message : fallback;
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,34 +230,48 @@ function ImportDialog({
   const submit = async () => {
     setError(null);
 
-    const form = new FormData();
-    let pastedText: string | null = null;
+    const chosenFile = mode === "file" ? file : null;
+    const pastedText = mode === "text" ? text.trim() : "";
 
-    if (mode === "file") {
-      if (!file) {
-        setError("Choose a PDF, DOCX or TXT file to import.");
-        return;
-      }
-      form.append("file", file);
-    } else {
-      const trimmed = text.trim();
-      if (trimmed.length < 200) {
-        setError("Paste at least a few paragraphs of the article (200+ characters) so the reviewer has something to work with.");
-        return;
-      }
-      form.append("text", trimmed);
-      pastedText = trimmed;
+    if (mode === "file" && !chosenFile) {
+      setError("Choose a PDF, DOCX or TXT file to import.");
+      return;
     }
-
-    if (focusNote.trim()) form.append("focusNote", focusNote.trim());
+    if (mode === "text" && pastedText.length < 200) {
+      setError("Paste at least a few paragraphs of the article (200+ characters) so the reviewer has something to work with.");
+      return;
+    }
 
     setBusy(true);
     try {
-      const result = await apiFetch<AnalyzeResponse>(`/api/notebooks/${notebookId}/reviews/analyze`, {
-        method: "POST",
-        body: form,
-      });
-      onImported(result, mode, pastedText);
+      let result: AnalyzeResponse;
+
+      if (chosenFile) {
+        const prepared = await prepareArticleFile(chosenFile);
+        if (prepared.transport === "text") {
+          result = await postJson<AnalyzeResponse>(`/api/notebooks/${notebookId}/reviews/analyze`, {
+            text: prepared.text,
+            filename: prepared.filename,
+            kind: prepared.kind,
+            focusNote: focusNote.trim() || undefined,
+          });
+        } else {
+          const form = new FormData();
+          form.append("file", prepared.file);
+          if (focusNote.trim()) form.append("focusNote", focusNote.trim());
+          result = await apiFetch<AnalyzeResponse>(`/api/notebooks/${notebookId}/reviews/analyze`, {
+            method: "POST",
+            body: form,
+          });
+        }
+      } else {
+        result = await postJson<AnalyzeResponse>(`/api/notebooks/${notebookId}/reviews/analyze`, {
+          text: pastedText,
+          focusNote: focusNote.trim() || undefined,
+        });
+      }
+
+      onImported(result, mode, mode === "text" ? pastedText : null);
       reset();
     } catch (thrown) {
       setError(messageOf(thrown, "The reviewer could not read that article. Try again, or paste the text instead."));
@@ -310,7 +325,7 @@ function ImportDialog({
         {mode === "file" ? (
           <Field
             label="Article file"
-            hint="PDF, DOCX or TXT. The file is read server-side and is never stored as a binary."
+            hint="PDF, DOCX or TXT. A PDF is read in your browser, so only its text is uploaded and the file never leaves your machine."
           >
             <input
               type="file"

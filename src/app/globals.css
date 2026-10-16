@@ -1,0 +1,259 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — an editorial "research studio" palette.             */
+/* Warm paper canvas, deep-ink chrome, cobalt accent, serif manuscript. */
+/* ------------------------------------------------------------------ */
+
+@theme {
+  --color-paper: #f5f4ef;
+  --color-paper-2: #ece9e1;
+  --color-card: #ffffff;
+  --color-line: #e4e1d8;
+  --color-line-2: #cfcbc0;
+
+  --color-ink: #0f1218;
+  --color-ink-2: #1b1f28;
+  --color-ink-3: #272d38;
+  --color-ink-line: #343b49;
+  --color-ink-muted: #99a1b0;
+
+  --color-muted: #6b7280;
+  --color-accent: #2f4fd8;
+  --color-accent-2: #2440be;
+  --color-accent-soft: #e9edff;
+  --color-accent-ink: #1e3494;
+
+  --color-good: #1c7a4d;
+  --color-good-soft: #e2f4e9;
+  --color-warn: #a0680d;
+  --color-warn-soft: #fbf0da;
+  --color-bad: #ad3227;
+  --color-bad-soft: #fbe5e2;
+
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia,
+    "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 22%, transparent);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Manuscript typography — serif, generous measure, print-like.        */
+/* ------------------------------------------------------------------ */
+
+.manuscript-type {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: var(--color-ink-2);
+  hanging-punctuation: first last;
+}
+
+.manuscript-type p {
+  margin-block: 0 1.1em;
+  text-align: justify;
+}
+
+.manuscript-type h1,
+.manuscript-type h2,
+.manuscript-type h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-block: 1.6em 0.6em;
+  color: var(--color-ink);
+}
+
+.manuscript-type h1 {
+  font-size: 1.35rem;
+}
+.manuscript-type h2 {
+  font-size: 1.15rem;
+}
+.manuscript-type h3 {
+  font-size: 1rem;
+}
+
+.manuscript-type ul,
+.manuscript-type ol {
+  margin-block: 0 1.1em;
+  padding-inline-start: 1.4em;
+}
+.manuscript-type ul {
+  list-style: disc;
+}
+.manuscript-type ol {
+  list-style: decimal;
+}
+.manuscript-type li {
+  margin-block: 0.2em;
+}
+
+.manuscript-type blockquote {
+  border-inline-start: 3px solid var(--color-line-2);
+  padding-inline-start: 1em;
+  color: var(--color-muted);
+  font-style: italic;
+  margin-block: 0 1.1em;
+}
+
+.manuscript-type table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  margin-block: 0 1.2em;
+}
+.manuscript-type th,
+.manuscript-type td {
+  border: 1px solid var(--color-line-2);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+.manuscript-type th {
+  background: var(--color-paper-2);
+  font-weight: 600;
+}
+
+.manuscript-type code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--color-paper-2);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-xs);
+}
+
+.manuscript-type a {
+  color: var(--color-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Compact variant for chat and callout text. */
+.compact-type {
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+.compact-type p {
+  margin-block: 0 0.75em;
+  text-align: left;
+}
+.compact-type h1,
+.compact-type h2,
+.compact-type h3 {
+  font-weight: 600;
+  margin-block: 1em 0.4em;
+}
+.compact-type ul,
+.compact-type ol {
+  margin-block: 0 0.8em;
+  padding-inline-start: 1.3em;
+}
+.compact-type ul {
+  list-style: disc;
+}
+.compact-type ol {
+  list-style: decimal;
+}
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                           */
+/* ------------------------------------------------------------------ */
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-2) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--color-line-2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.grid-paper {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-line) 60%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@keyframes pulse-line {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.caret-line::after {
+  content: "";
+  display: inline-block;
+  width: 0.5ch;
+  height: 1.05em;
+  margin-inline-start: 2px;
+  vertical-align: -0.15em;
+  background: var(--color-accent);
+  animation: pulse-line 1s ease-in-out infinite;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

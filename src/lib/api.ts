@@ -27,9 +27,9 @@ export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof AiConfigError) return fail(error.message, 503);
   if (error instanceof AiRequestError) return fail(error.message, error.status);
 
-  const message = error instanceof Error ? error.message : "Unexpected server error.";
+  // Anything unhandled is a bug on our side: log the detail, tell the client nothing.
   console.error("[api]", error);
-  return fail(message, 500);
+  return fail("Something went wrong on our end. Please try again.", 500);
 }
 
 export async function readJson<T>(request: Request): Promise<T> {

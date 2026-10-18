@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { notebooks, reviews } from "@/db/schema";
@@ -146,7 +146,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
     const deleted = await db
       .delete(reviews)
-      .where(and(eq(reviews.notebookId, id), sql`${reviews.id} = any(${body.reviewIds})`))
+      .where(and(eq(reviews.notebookId, id), inArray(reviews.id, body.reviewIds)))
       .returning({ id: reviews.id });
 
     return ok({ deleted: deleted.length });

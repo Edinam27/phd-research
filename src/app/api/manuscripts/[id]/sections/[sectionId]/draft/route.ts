@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { manuscriptSectionMessages } from "@/lib/ai/prompts";
 import { sseResponse, streamCompletion } from "@/lib/ai/provider";
 import { loadSectionContext, neighboursOf } from "@/lib/manuscripts";
+import { toPlainProse } from "@/lib/text";
 import { countWords } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -70,7 +71,9 @@ export async function POST(request: Request, { params }: Params) {
       { userId: user.id, notebookId: manuscript.notebookId, feature: "manuscript-section" },
       {
         onFinish: async (text) => {
-          const produced = text.trim();
+          // The editor and the export both hold plain prose, so any markdown the
+          // model reached for is rewritten before it reaches the section.
+          const produced = toPlainProse(text, section.heading);
           let finalContent: string;
           if (mode === "append") {
             finalContent = `${section.content.trimEnd()}\n\n${produced}`.trim();

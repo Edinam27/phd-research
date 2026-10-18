@@ -196,7 +196,7 @@ Section-specific instruction from the template:
 ${section.guidance}
 ${section.tables?.length ? `\nTables expected in this section: ${section.tables.join("; ")}. Write them as "INSERT TABLE n HERE ABOUT" callouts exactly where the template asks, and describe in one sentence what the table contains.` : ""}
 
-Output the section body only. No section heading, no preamble such as "Here is the section", no explanation of what you did. Markdown headings are permitted only for sub-sections listed in the template requirements (for example one sub-section per hypothesis pairing).
+Output the section body only. No section heading, no preamble such as "Here is the section", no explanation of what you did. Write plain prose, with no markdown at all: no # headings, no **bold** or *italic* markers, no backticks. Give a structured abstract's paragraphs an unadorned label and colon, like "Purpose: ...". Where the template asks for sub-sections, put the sub-section title on its own line as plain text.
 
 ${ACADEMIC_RULES}`,
     },

@@ -16,7 +16,15 @@
 
 export const FULL_MANUSCRIPT = { wordMin: 5000, wordMax: 8000 } as const;
 
-export type StudyType = "quantitative" | "qualitative" | "mixed" | "conceptual" | "systematic-review";
+export type StudyType = "quantitative" | "qualitative" | "mixed";
+/** What kind of paper is being written, independent of its methodological orientation. */
+export type ResearchType =
+  | "empirical"
+  | "conceptual"
+  | "systematic-review"
+  | "narrative-review"
+  | "case-study"
+  | "editorial";
 export type ManuscriptKind = "article" | "proposal" | "abstract";
 
 export type GuidelineSection = {
@@ -347,9 +355,7 @@ export function getSections(kind: ManuscriptKind, studyType: StudyType): Guideli
 function appliesToStudy(section: GuidelineSection, studyType: StudyType): boolean {
   if (section.appliesTo === "all") return true;
   if (studyType === "mixed") return true;
-  if (studyType === "quantitative") return section.appliesTo === "quantitative";
-  if (studyType === "qualitative") return section.appliesTo === "qualitative";
-  return false;
+  return section.appliesTo === studyType;
 }
 
 /** Sum of the guideline's lower/upper word budgets for a template. */
@@ -370,9 +376,24 @@ export const STUDY_TYPES: { value: StudyType; label: string }[] = [
   { value: "quantitative", label: "Quantitative" },
   { value: "qualitative", label: "Qualitative" },
   { value: "mixed", label: "Mixed methods" },
-  { value: "conceptual", label: "Conceptual" },
-  { value: "systematic-review", label: "Systematic review" },
 ];
+
+export const RESEARCH_TYPES: { value: ResearchType; label: string }[] = [
+  { value: "empirical", label: "Empirical research" },
+  { value: "conceptual", label: "Conceptual research" },
+  { value: "systematic-review", label: "Systematic review" },
+  { value: "narrative-review", label: "Narrative review" },
+  { value: "case-study", label: "Case study" },
+  { value: "editorial", label: "Editorial" },
+];
+
+export function studyTypeLabel(value: string): string {
+  return STUDY_TYPES.find((entry) => entry.value === value)?.label ?? value;
+}
+
+export function researchTypeLabel(value: string): string {
+  return RESEARCH_TYPES.find((entry) => entry.value === value)?.label ?? value;
+}
 
 export const MANUSCRIPT_STATUSES = [
   "draft",

@@ -85,10 +85,10 @@ Visiting `/` redirects to `/login` or `/dashboard` depending on your session. If
 Everything is scoped to a **notebook** — one notebook per study, thesis stream, or paper. Notebooks never see each other's articles, notes, or manuscripts.
 
 **Notebook**
-- *Overview* — the study's framing: research problem, objectives, key variables, theory, context. These fields are injected into every AI call, so filling them in materially improves output quality.
+- *Overview* — the study's framing: research problem, objectives, key variables, theory, context, study type (quantitative / qualitative / mixed) and type of research (empirical, conceptual, review, case study, editorial). These fields are injected into every AI call, so filling them in materially improves output quality.
+- *Article reviewer* (`/review`) — a three-step guided flow: supply a PDF/DOCX or paste text → let the AI draft the 11-column taxonomy row and the appraisal scores → verify and save. Low-confidence columns are flagged so you know what to check. Every saved review becomes a row of the evidence matrix.
 - *Evidence matrix* (`/reviews`) — the TAXONOMY.xlsx layout: one row per article, 11 columns plus appraisal scores, verdict, status, and an AI-completeness meter. Sortable, searchable, bulk-deletable, exportable to `.xlsx` with the original headers.
-- *Article reviewer* (`/review`) — a three-step guided flow: supply a PDF/DOCX or paste text → let the AI draft the 11-column taxonomy row and the appraisal scores → verify and save. Low-confidence columns are flagged so you know what to check.
-- *Proposals & articles* (`/manuscripts`) — create a proposal or article, and write it against the guideline. Each section shows its word budget and checklist; AI actions are *Draft*, *Continue*, *Tighten*, and *Audit* (the audit reports structure, word budget, and citation hygiene).
+- *Proposals & articles* (`/manuscripts`) — create a proposal or article, and write it against the guideline. A manuscript picks the reviewed works it may cite, so drafts and citation checks only see that selection; leaving everything ticked uses the whole matrix. Each section shows its word budget and checklist; AI actions are *Draft*, *Continue*, *Tighten*, and *Audit* (the audit reports structure, word budget, and citation hygiene).
 - *Research* (`/research`) — three tools: ask grounded literature questions and keep a research log; synthesise all reviewed articles into themes, consensus, contradictions, gaps, candidate questions and hypotheses; and a supervisor chat that streams answers grounded in the notebook's own material.
 - *Team* — invite collaborators by email as `viewer`, `editor`, or `owner`. Viewers get read-only UI; only owners can change membership.
 

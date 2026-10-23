@@ -68,6 +68,7 @@ export async function PATCH(request: Request, { params }: Params) {
         title: body.title ?? notebook.title,
         description: body.description === undefined ? notebook.description : body.description,
         researchArea: body.researchArea === undefined ? notebook.researchArea : body.researchArea,
+        researchType: body.researchType ?? notebook.researchType,
         studyType: body.studyType ?? notebook.studyType,
         status: body.status ?? notebook.status,
         targetJournal: body.targetJournal === undefined ? notebook.targetJournal : body.targetJournal,

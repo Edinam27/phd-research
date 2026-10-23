@@ -17,7 +17,7 @@ import { NotebookForm, type NotebookPayload } from "@/components/notebook-form";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Alert, Badge, Button, Card, EmptyState, Spinner, Stat } from "@/components/ui";
 import { getJson, postJson } from "@/lib/client";
-import { STUDY_TYPES } from "@/lib/guideline";
+import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookSummary } from "@/lib/types";
 import { formatDate, formatUsd } from "@/lib/utils";
 
@@ -202,6 +202,8 @@ export function DashboardClient({
 
 function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
   const studyLabel = STUDY_TYPES.find((type) => type.value === notebook.studyType)?.label ?? notebook.studyType;
+  const researchLabel =
+    RESEARCH_TYPES.find((type) => type.value === notebook.researchType)?.label ?? notebook.researchType;
   const roleTone = notebook.role === "owner" ? "neutral" : notebook.role === "editor" ? "accent" : "warn";
 
   return (
@@ -223,6 +225,7 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Badge>{studyLabel}</Badge>
+          <Badge>{researchLabel}</Badge>
           <Badge tone={roleTone}>{notebook.role}</Badge>
           {notebook.keyVariables.length > 0 ? (
             <Badge tone="accent">{notebook.keyVariables.length} variables</Badge>

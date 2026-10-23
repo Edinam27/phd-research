@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         title: body.title,
         description: body.description ?? null,
         researchArea: body.researchArea ?? null,
+        researchType: body.researchType,
         studyType: body.studyType,
         status: body.status,
         targetJournal: body.targetJournal ?? null,

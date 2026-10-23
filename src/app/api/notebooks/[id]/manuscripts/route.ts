@@ -51,6 +51,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const body = manuscriptSchema.parse(await readJson(request));
     const studyType = body.studyType ?? (notebook.studyType as never);
+    const researchType = body.researchType ?? (notebook.researchType as never);
 
     const manuscript = await createManuscriptWithSections({
       notebookId: id,
@@ -58,6 +59,8 @@ export async function POST(request: Request, { params }: Params) {
       title: body.title,
       kind: body.kind,
       studyType,
+      researchType,
+      evidenceIds: body.evidenceIds,
       targetJournal: body.targetJournal ?? notebook.targetJournal,
       status: body.status,
       abstract: body.abstract ?? null,

@@ -7,6 +7,7 @@ import { FileText, Plus, Trash } from "lucide-react";
 
 import { Modal } from "@/components/modal";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { EvidencePicker, type EvidenceOption } from "@/components/evidence-picker";
 import {
   Alert,
   Badge,
@@ -21,12 +22,13 @@ import {
   Textarea,
 } from "@/components/ui";
 import { ApiError, deleteJson, getJson, postJson } from "@/lib/client";
-import { MANUSCRIPT_KINDS, MANUSCRIPT_STATUSES, STUDY_TYPES } from "@/lib/guideline";
+import { MANUSCRIPT_KINDS, MANUSCRIPT_STATUSES, RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type {
   Manuscript,
   ManuscriptKind,
   ManuscriptSummary,
   NotebookDetail,
+  ResearchType,
   StudyType,
 } from "@/lib/types";
 
@@ -50,6 +52,7 @@ export function ManuscriptsList() {
 
   const [manuscripts, setManuscripts] = useState<ManuscriptSummary[] | null>(null);
   const [detail, setDetail] = useState<NotebookDetail | null>(null);
+  const [evidence, setEvidence] = useState<EvidenceOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,12 +62,14 @@ export function ManuscriptsList() {
 
   const load = useCallback(async () => {
     try {
-      const [list, notebook] = await Promise.all([
+      const [list, notebook, evidenceList] = await Promise.all([
         getJson<{ manuscripts: ManuscriptSummary[] }>(`/api/notebooks/${id}/manuscripts`),
         getJson<NotebookDetail>(`/api/notebooks/${id}`),
+        getJson<{ reviews: EvidenceOption[] }>(`/api/notebooks/${id}/reviews?fields=compact`),
       ]);
       setManuscripts(list.manuscripts);
       setDetail(notebook);
+      setEvidence(evidenceList.reviews);
       setError(null);
     } catch (thrown) {
       setError(
@@ -231,7 +236,9 @@ export function ManuscriptsList() {
       >
         <CreateForm
           initialStudyType={detail?.notebook.studyType ?? "quantitative"}
+          initialResearchType={detail?.notebook.researchType ?? "empirical"}
           initialJournal={detail?.notebook.targetJournal ?? ""}
+          evidence={evidence}
           onSubmit={create}
           busy={busy}
           error={formError}
@@ -266,7 +273,9 @@ export function ManuscriptsList() {
 type CreatePayload = {
   title: string;
   kind: ManuscriptKind;
+  researchType: ResearchType;
   studyType: StudyType;
+  evidenceIds: string[];
   targetJournal: string | null;
   status: string;
   abstract: string | null;
@@ -275,13 +284,17 @@ type CreatePayload = {
 
 function CreateForm({
   initialStudyType,
+  initialResearchType,
   initialJournal,
+  evidence,
   onSubmit,
   busy,
   error,
 }: {
   initialStudyType: StudyType;
+  initialResearchType: ResearchType;
   initialJournal: string;
+  evidence: EvidenceOption[];
   onSubmit: (payload: CreatePayload) => void | Promise<void>;
   busy: boolean;
   error: string | null;
@@ -289,12 +302,14 @@ function CreateForm({
   const [form, setForm] = useState({
     title: "",
     kind: "article" as ManuscriptKind,
+    researchType: initialResearchType,
     studyType: initialStudyType,
     targetJournal: initialJournal,
     status: "draft",
     abstract: "",
     keywords: "",
   });
+  const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const submit = (event: React.FormEvent) => {
@@ -307,7 +322,9 @@ function CreateForm({
     void onSubmit({
       title: form.title.trim(),
       kind: form.kind,
+      researchType: form.researchType,
       studyType: form.studyType,
+      evidenceIds,
       targetJournal: form.targetJournal.trim() || null,
       status: form.status,
       abstract: form.abstract.trim() || null,
@@ -351,6 +368,23 @@ function CreateForm({
           </Select>
         </Field>
 
+        <Field label="Type of research" hint="Empirical, conceptual, review, case study or editorial.">
+          <Select
+            value={form.researchType}
+            onChange={(event) =>
+              setForm({ ...form, researchType: event.target.value as ResearchType })
+            }
+          >
+            {RESEARCH_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Study type" hint="Decides which guideline sections appear.">
           <Select
             value={form.studyType}
@@ -363,9 +397,7 @@ function CreateForm({
             ))}
           </Select>
         </Field>
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Status">
           <Select
             value={form.status}
@@ -378,15 +410,22 @@ function CreateForm({
             ))}
           </Select>
         </Field>
-
-        <Field label="Target journal" hint="Optional. Borrowed from the notebook if left blank.">
-          <Input
-            value={form.targetJournal}
-            onChange={(event) => setForm({ ...form, targetJournal: event.target.value })}
-            placeholder="Tourism Management"
-          />
-        </Field>
       </div>
+
+      <Field label="Target journal" hint="Optional. Borrowed from the notebook if left blank.">
+        <Input
+          value={form.targetJournal}
+          onChange={(event) => setForm({ ...form, targetJournal: event.target.value })}
+          placeholder="Tourism Management"
+        />
+      </Field>
+
+      <Field
+        label="Evidence to draw on"
+        hint="Pick the reviewed works this manuscript may cite. Leave everything ticked to use the whole matrix."
+      >
+        <EvidencePicker options={evidence} selected={evidenceIds} onChange={setEvidenceIds} />
+      </Field>
 
       <Field
         label="Abstract"

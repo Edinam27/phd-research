@@ -21,7 +21,7 @@ import {
   Stat,
 } from "@/components/ui";
 import { ApiError, apiFetch, getJson, postJson } from "@/lib/client";
-import { STUDY_TYPES } from "@/lib/guideline";
+import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail, NotebookRole } from "@/lib/types";
 import { formatUsd } from "@/lib/utils";
 
@@ -115,6 +115,10 @@ export function TeamClient() {
   const studyLabel = detail
     ? (STUDY_TYPES.find((type) => type.value === detail.notebook.studyType)?.label ??
       detail.notebook.studyType)
+    : "";
+  const researchLabel = detail
+    ? (RESEARCH_TYPES.find((type) => type.value === detail.notebook.researchType)?.label ??
+      detail.notebook.researchType)
     : "";
 
   return (
@@ -231,6 +235,7 @@ export function TeamClient() {
                   <div className="space-y-3 px-5 py-4">
                     <Row label="Title" value={detail.notebook.title} />
                     <Row label="Study type" value={studyLabel} />
+                    <Row label="Type of research" value={researchLabel} />
                     <Row label="Stage" value={detail.notebook.status} />
                     <Row label="Target journal" value={detail.notebook.targetJournal ?? "—"} />
                   </div>

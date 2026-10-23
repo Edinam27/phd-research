@@ -3,7 +3,14 @@
  * Kept hand-written so the client never imports server-only modules.
  */
 
-export type StudyType = "quantitative" | "qualitative" | "mixed" | "conceptual" | "systematic-review";
+export type StudyType = "quantitative" | "qualitative" | "mixed";
+export type ResearchType =
+  | "empirical"
+  | "conceptual"
+  | "systematic-review"
+  | "narrative-review"
+  | "case-study"
+  | "editorial";
 export type ManuscriptKind = "article" | "proposal" | "abstract";
 export type NotebookRole = "owner" | "editor" | "viewer";
 export type Verdict = "include" | "borderline" | "exclude";
@@ -16,6 +23,7 @@ export type Notebook = {
   title: string;
   description: string | null;
   researchArea: string | null;
+  researchType: ResearchType;
   studyType: StudyType;
   status: string;
   targetJournal: string | null;
@@ -128,7 +136,10 @@ export type Manuscript = {
   kind: ManuscriptKind;
   title: string;
   targetJournal: string | null;
+  researchType: ResearchType;
   studyType: StudyType;
+  /** Evidence-matrix rows this manuscript may cite; empty means the whole matrix. */
+  evidenceIds: string[];
   status: string;
   abstract: string | null;
   keywords: string[];

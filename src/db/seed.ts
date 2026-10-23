@@ -60,6 +60,7 @@ async function main() {
         description:
           "Doctoral study examining how heterogeneous visitor segments process the heritage experience, and what that means for destination loyalty.",
         researchArea: "Tourism marketing",
+        researchType: "empirical",
         studyType: "quantitative",
         status: "reviewing",
         targetJournal: "Tourism Management",
@@ -200,6 +201,7 @@ async function main() {
         kind: "article",
         title: "Heterogeneous visitor processing of the heritage experience and its consequences for loyalty",
         targetJournal: "Tourism Management",
+        researchType: "empirical",
         studyType: "quantitative",
         status: "draft",
         abstract:

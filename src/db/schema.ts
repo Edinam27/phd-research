@@ -65,7 +65,9 @@ export const notebooks = pgTable(
     description: text("description"),
     /** Broad field, e.g. "Tourism marketing" */
     researchArea: text("research_area"),
-    /** quantitative | qualitative | mixed | conceptual | systematic-review */
+    /** What kind of paper this is: empirical | conceptual | systematic-review | ... */
+    researchType: text("research_type").default("empirical").notNull(),
+    /** quantitative | qualitative | mixed */
     studyType: text("study_type").default("quantitative").notNull(),
     /** planning | reviewing | writing | submitted | archived */
     status: text("status").default("planning").notNull(),
@@ -200,7 +202,16 @@ export const manuscripts = pgTable(
     kind: text("kind").default("article").notNull(),
     title: text("title").notNull(),
     targetJournal: text("target_journal"),
+    /** What kind of paper this is: empirical | conceptual | systematic-review | ... */
+    researchType: text("research_type").default("empirical").notNull(),
+    /** quantitative | qualitative | mixed */
     studyType: text("study_type").default("quantitative").notNull(),
+    /**
+     * Which evidence-matrix rows this manuscript may cite. Empty means every
+     * non-excluded review in the notebook, which is the behaviour before the
+     * manuscript could choose a subset.
+     */
+    evidenceIds: jsonb("evidence_ids").$type<string[]>().default([]).notNull(),
     /** draft | internal-review | supervisor-review | ready | submitted | published */
     status: text("status").default("draft").notNull(),
     abstract: text("abstract"),

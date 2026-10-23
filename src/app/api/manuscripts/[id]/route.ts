@@ -10,6 +10,7 @@ import {
   loadManuscriptContext,
   loadSections,
   sectionProgress,
+  selectEvidence,
   syncSections,
   uncitedAnchors,
 } from "@/lib/manuscripts";
@@ -29,9 +30,8 @@ export async function GET(_request: Request, { params }: Params) {
     const sections = await loadSections(id);
 
     const evidence = await db.select().from(reviews).where(eq(reviews.notebookId, manuscript.notebookId));
-    const anchors = evidence
-      .filter((review) => review.verdict !== "exclude")
-      .map((review) => `${review.author}${review.year ? ` (${review.year})` : ""}`);
+    const cited = selectEvidence(evidence, manuscript.evidenceIds);
+    const anchors = cited.map((review) => `${review.author}${review.year ? ` (${review.year})` : ""}`);
 
     const template = getSections(manuscript.kind as never, manuscript.studyType as never);
 
@@ -41,6 +41,13 @@ export async function GET(_request: Request, { params }: Params) {
       role,
       sections,
       progress: sectionProgress(sections),
+      evidence: evidence.map((review) => ({
+        id: review.id,
+        author: review.author,
+        year: review.year,
+        title: review.title,
+        verdict: review.verdict,
+      })),
       uncited: uncitedAnchors(
         sections.map((section) => section.content).join("\n\n"),
         anchors,
@@ -80,7 +87,9 @@ export async function PATCH(request: Request, { params }: Params) {
       .set({
         title: body.title ?? manuscript.title,
         kind,
+        researchType: body.researchType ?? manuscript.researchType,
         studyType,
+        evidenceIds: body.evidenceIds ?? manuscript.evidenceIds,
         targetJournal: body.targetJournal === undefined ? manuscript.targetJournal : body.targetJournal,
         status: body.status ?? manuscript.status,
         abstract: body.abstract === undefined ? manuscript.abstract : body.abstract,

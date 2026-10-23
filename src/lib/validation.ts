@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+const studyType = z.enum(["quantitative", "qualitative", "mixed"]);
+const researchType = z.enum([
+  "empirical",
+  "conceptual",
+  "systematic-review",
+  "narrative-review",
+  "case-study",
+  "editorial",
+]);
+
 export const registerSchema = z.object({
   name: z.string().trim().min(2, "Tell us your name.").max(120),
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
@@ -18,7 +28,8 @@ export const notebookSchema = z.object({
   title: z.string().trim().min(3, "Give the notebook a title.").max(200),
   description: z.string().trim().max(2000).optional().nullable(),
   researchArea: z.string().trim().max(200).optional().nullable(),
-  studyType: z.enum(["quantitative", "qualitative", "mixed", "conceptual", "systematic-review"]).default("quantitative"),
+  researchType: researchType.default("empirical"),
+  studyType: studyType.default("quantitative"),
   status: z.enum(["planning", "reviewing", "writing", "submitted", "archived"]).default("planning"),
   targetJournal: z.string().trim().max(200).optional().nullable(),
   keyVariables: z.array(z.string().trim().min(1).max(160)).max(30).default([]),
@@ -86,7 +97,10 @@ export const reviewUpdateSchema = reviewSchema.partial();
 export const manuscriptSchema = z.object({
   title: z.string().trim().min(3, "Give the manuscript a title.").max(300),
   kind: z.enum(["article", "proposal", "abstract"]).default("article"),
-  studyType: z.enum(["quantitative", "qualitative", "mixed", "conceptual", "systematic-review"]).default("quantitative"),
+  researchType: researchType.default("empirical"),
+  studyType: studyType.default("quantitative"),
+  /** Empty means every non-excluded review in the notebook. */
+  evidenceIds: z.array(z.string().uuid()).max(500).default([]),
   targetJournal: z.string().trim().max(200).optional().nullable(),
   status: z.enum(["draft", "internal-review", "supervisor-review", "ready", "submitted", "published"]).default("draft"),
   abstract: z.string().trim().max(6000).optional().nullable(),

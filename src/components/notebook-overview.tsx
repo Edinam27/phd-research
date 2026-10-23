@@ -20,7 +20,7 @@ import { NotebookForm, ObjectiveList, type NotebookPayload } from "@/components/
 import { PageBody } from "@/components/page-header";
 import { Alert, Badge, Button, Card, CardHeader, Spinner, Stat } from "@/components/ui";
 import { deleteJson, downloadFile, getJson, patchJson } from "@/lib/client";
-import { STUDY_TYPES } from "@/lib/guideline";
+import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail } from "@/lib/types";
 import { formatDate, formatUsd } from "@/lib/utils";
 
@@ -126,6 +126,8 @@ export function NotebookOverview() {
   const { notebook, role, stats, members } = detail;
   const canEdit = role !== "viewer";
   const studyLabel = STUDY_TYPES.find((type) => type.value === notebook.studyType)?.label ?? notebook.studyType;
+  const researchLabel =
+    RESEARCH_TYPES.find((type) => type.value === notebook.researchType)?.label ?? notebook.researchType;
 
   return (
     <PageBody>
@@ -155,6 +157,7 @@ export function NotebookOverview() {
           />
           <div className="space-y-5 px-5 py-4">
             <Row label="Study type" value={studyLabel} />
+            <Row label="Type of research" value={researchLabel} />
             <Row label="Stage" value={notebook.status} />
             <Row label="Target journal" value={notebook.targetJournal ?? "—"} />
             <Row label="Theory / model" value={notebook.theory ?? "—"} />

@@ -14,6 +14,15 @@ import { AccessError, requireNotebookAccess, type NotebookRole } from "@/lib/acc
 import { getSections, type GuidelineSection, type ManuscriptKind, type StudyType } from "@/lib/guideline";
 import { countWords } from "@/lib/utils";
 
+/**
+ * The reviews a manuscript is allowed to cite: its own selection when it has
+ * one, otherwise every review in the notebook. Excluded rows never qualify.
+ */
+export function selectEvidence(all: Review[], evidenceIds: string[]): Review[] {
+  const chosen = evidenceIds.length > 0 ? all.filter((review) => evidenceIds.includes(review.id)) : all;
+  return chosen.filter((review) => review.verdict !== "exclude");
+}
+
 export type ManuscriptContext = {
   manuscript: Manuscript;
   notebook: Notebook;
@@ -65,7 +74,7 @@ export async function loadSectionContext(
     ...context,
     section,
     siblings: siblings.sort((a, b) => a.position - b.position),
-    evidence: evidence.filter((review) => review.verdict !== "exclude"),
+    evidence: selectEvidence(evidence, context.manuscript.evidenceIds),
     template,
   };
 }
@@ -81,6 +90,8 @@ export async function createManuscriptWithSections(input: {
   title: string;
   kind: ManuscriptKind;
   studyType: StudyType;
+  researchType?: string;
+  evidenceIds?: string[];
   targetJournal?: string | null;
   status?: string;
   abstract?: string | null;
@@ -94,6 +105,8 @@ export async function createManuscriptWithSections(input: {
       title: input.title,
       kind: input.kind,
       studyType: input.studyType,
+      researchType: input.researchType ?? "empirical",
+      evidenceIds: input.evidenceIds ?? [],
       targetJournal: input.targetJournal ?? null,
       status: input.status ?? "draft",
       abstract: input.abstract ?? null,

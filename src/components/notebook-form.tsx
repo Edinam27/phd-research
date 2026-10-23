@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Plus, Trash } from "lucide-react";
 
 import { Alert, Button, Field, Input, Select, Textarea } from "@/components/ui";
-import { STUDY_TYPES } from "@/lib/guideline";
-import type { Notebook, StudyType } from "@/lib/types";
+import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
+import type { Notebook, ResearchType, StudyType } from "@/lib/types";
 
 export const NOTEBOOK_STATUSES = [
   { value: "planning", label: "Planning" },
@@ -19,6 +19,7 @@ export type NotebookPayload = {
   title: string;
   description: string | null;
   researchArea: string | null;
+  researchType: ResearchType;
   studyType: StudyType;
   status: string;
   targetJournal: string | null;
@@ -74,6 +75,7 @@ export function NotebookForm({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
     researchArea: initial?.researchArea ?? "",
+    researchType: (initial?.researchType ?? "empirical") as ResearchType,
     studyType: (initial?.studyType ?? "quantitative") as StudyType,
     status: initial?.status ?? "planning",
     targetJournal: initial?.targetJournal ?? "",
@@ -96,6 +98,7 @@ export function NotebookForm({
       title: form.title.trim(),
       description: form.description.trim() || null,
       researchArea: form.researchArea.trim() || null,
+      researchType: form.researchType,
       studyType: form.studyType,
       status: form.status,
       targetJournal: form.targetJournal.trim() || null,
@@ -122,7 +125,19 @@ export function NotebookForm({
         />
       </Field>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Type of research" hint="The shape of the paper: empirical, conceptual, review, case study.">
+          <Select
+            value={form.researchType}
+            onChange={(event) => setForm({ ...form, researchType: event.target.value as ResearchType })}
+          >
+            {RESEARCH_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Study type" hint="Decides which guideline sections appear.">
           <Select
             value={form.studyType}
@@ -135,6 +150,9 @@ export function NotebookForm({
             ))}
           </Select>
         </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Stage">
           <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
             {NOTEBOOK_STATUSES.map((status) => (

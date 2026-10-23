@@ -16,14 +16,14 @@ import {
 
 import { Alert, Badge, Button, Card, Spinner } from "@/components/ui";
 import { downloadFile, getJson } from "@/lib/client";
-import { STUDY_TYPES } from "@/lib/guideline";
+import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail } from "@/lib/types";
 import { cn, formatUsd } from "@/lib/utils";
 
 const TABS = [
   { href: "", label: "Overview", icon: Gauge },
-  { href: "/reviews", label: "Evidence matrix", icon: Table2 },
   { href: "/review", label: "Article reviewer", icon: Sparkles },
+  { href: "/reviews", label: "Evidence matrix", icon: Table2 },
   { href: "/manuscripts", label: "Manuscripts", icon: FileText },
   { href: "/research", label: "Research & synthesis", icon: Compass },
   { href: "/team", label: "Team", icon: Users },
@@ -57,6 +57,10 @@ export default function NotebookLayout({ children }: { children: React.ReactNode
   const studyLabel = detail
     ? (STUDY_TYPES.find((type) => type.value === detail.notebook.studyType)?.label ?? detail.notebook.studyType)
     : "";
+  const researchLabel = detail
+    ? (RESEARCH_TYPES.find((type) => type.value === detail.notebook.researchType)?.label ??
+      detail.notebook.researchType)
+    : "";
 
   return (
     <div>
@@ -71,6 +75,7 @@ export default function NotebookLayout({ children }: { children: React.ReactNode
               {detail ? (
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <Badge tone="accent">{studyLabel}</Badge>
+                  {researchLabel ? <Badge>{researchLabel}</Badge> : null}
                   <Badge tone={ROLE_TONE[detail.role]}>{detail.role}</Badge>
                   <Badge>{detail.notebook.status}</Badge>
                   {detail.notebook.researchArea ? <Badge>{detail.notebook.researchArea}</Badge> : null}

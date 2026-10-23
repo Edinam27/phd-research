@@ -39,6 +39,24 @@ export async function GET(request: Request, { params }: Params) {
     }
     if (verdict && verdict !== "all") filters.push(eq(reviews.verdict, verdict));
 
+    // The manuscript picker only needs enough of each row to render a title,
+    // so it never pulls the stored source text across the wire.
+    if (url.searchParams.get("fields") === "compact") {
+      const compact = await db
+        .select({
+          id: reviews.id,
+          author: reviews.author,
+          year: reviews.year,
+          title: reviews.title,
+          verdict: reviews.verdict,
+        })
+        .from(reviews)
+        .where(and(...filters))
+        .orderBy(desc(reviews.createdAt));
+
+      return ok({ reviews: compact });
+    }
+
     const rows = await db
       .select()
       .from(reviews)

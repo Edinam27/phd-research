@@ -7,6 +7,7 @@ import { ArrowRight, Download, Save, Settings, ShieldCheck, Sparkles, X } from "
 import { Modal } from "@/components/modal";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Prose } from "@/components/prose";
+import { EvidencePicker, type EvidenceOption } from "@/components/evidence-picker";
 import {
   Alert,
   Badge,
@@ -30,7 +31,12 @@ import {
   postJson,
   streamSse,
 } from "@/lib/client";
-import { MANUSCRIPT_KINDS, MANUSCRIPT_STATUSES, STUDY_TYPES } from "@/lib/guideline";
+import {
+  MANUSCRIPT_KINDS,
+  MANUSCRIPT_STATUSES,
+  RESEARCH_TYPES,
+  STUDY_TYPES,
+} from "@/lib/guideline";
 import type {
   ComplianceReport,
   Manuscript,
@@ -38,6 +44,7 @@ import type {
   ManuscriptSection,
   Notebook,
   NotebookRole,
+  ResearchType,
   SectionProgress,
   SectionStatus,
   SectionTemplate,
@@ -54,6 +61,7 @@ type ManuscriptDetail = {
   role: NotebookRole;
   sections: ManuscriptSection[];
   progress: SectionProgress;
+  evidence: EvidenceOption[];
   uncited: string[];
   template: Record<string, SectionTemplate>;
 };
@@ -80,6 +88,10 @@ function kindLabel(kind: ManuscriptKind): string {
 
 function studyLabel(studyType: StudyType): string {
   return STUDY_TYPES.find((entry) => entry.value === studyType)?.label ?? studyType;
+}
+
+function researchLabel(researchType: ResearchType): string {
+  return RESEARCH_TYPES.find((entry) => entry.value === researchType)?.label ?? researchType;
 }
 
 function budgetText(min: number, max: number): string {
@@ -336,7 +348,7 @@ export function ManuscriptWriter() {
   }
 
   const { manuscript, notebook, progress, uncited } = data;
-  const subtitle = `${kindLabel(manuscript.kind)} · ${studyLabel(manuscript.studyType)}${
+  const subtitle = `${kindLabel(manuscript.kind)} · ${researchLabel(manuscript.researchType)} · ${studyLabel(manuscript.studyType)}${
     manuscript.targetJournal ? ` · Target journal: ${manuscript.targetJournal}` : ""
   }`;
 
@@ -616,6 +628,7 @@ export function ManuscriptWriter() {
       >
         <SettingsForm
           manuscript={manuscript}
+          evidence={data.evidence}
           onSubmit={saveSettings}
           busy={settingsBusy}
           error={settingsError}
@@ -743,7 +756,9 @@ function AuditList({ heading, tone, items }: { heading: string; tone: Tone; item
 type ManuscriptSettingsPayload = {
   title: string;
   kind: ManuscriptKind;
+  researchType: ResearchType;
   studyType: StudyType;
+  evidenceIds: string[];
   targetJournal: string | null;
   status: string;
   abstract: string | null;
@@ -752,11 +767,13 @@ type ManuscriptSettingsPayload = {
 
 function SettingsForm({
   manuscript,
+  evidence,
   onSubmit,
   busy,
   error,
 }: {
   manuscript: Manuscript;
+  evidence: EvidenceOption[];
   onSubmit: (payload: ManuscriptSettingsPayload) => void | Promise<void>;
   busy: boolean;
   error: string | null;
@@ -764,12 +781,14 @@ function SettingsForm({
   const [form, setForm] = useState({
     title: manuscript.title,
     kind: manuscript.kind,
+    researchType: manuscript.researchType,
     studyType: manuscript.studyType,
     targetJournal: manuscript.targetJournal ?? "",
     status: manuscript.status,
     abstract: manuscript.abstract ?? "",
     keywords: manuscript.keywords.join(", "),
   });
+  const [evidenceIds, setEvidenceIds] = useState<string[]>(manuscript.evidenceIds);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const submit = (event: React.FormEvent) => {
@@ -782,7 +801,9 @@ function SettingsForm({
     void onSubmit({
       title: form.title.trim(),
       kind: form.kind,
+      researchType: form.researchType,
       studyType: form.studyType,
+      evidenceIds,
       targetJournal: form.targetJournal.trim() || null,
       status: form.status,
       abstract: form.abstract.trim() || null,
@@ -826,6 +847,23 @@ function SettingsForm({
           </Select>
         </Field>
 
+        <Field label="Type of research" hint="Empirical, conceptual, review, case study or editorial.">
+          <Select
+            value={form.researchType}
+            onChange={(event) =>
+              setForm({ ...form, researchType: event.target.value as ResearchType })
+            }
+          >
+            {RESEARCH_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Study type" hint="Decides which guideline sections appear.">
           <Select
             value={form.studyType}
@@ -838,9 +876,7 @@ function SettingsForm({
             ))}
           </Select>
         </Field>
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Status">
           <Select
             value={form.status}
@@ -853,15 +889,22 @@ function SettingsForm({
             ))}
           </Select>
         </Field>
-
-        <Field label="Target journal">
-          <Input
-            value={form.targetJournal}
-            onChange={(event) => setForm({ ...form, targetJournal: event.target.value })}
-            placeholder="Tourism Management"
-          />
-        </Field>
       </div>
+
+      <Field label="Target journal">
+        <Input
+          value={form.targetJournal}
+          onChange={(event) => setForm({ ...form, targetJournal: event.target.value })}
+          placeholder="Tourism Management"
+        />
+      </Field>
+
+      <Field
+        label="Evidence to draw on"
+        hint="Only the ticked works feed the AI drafts and count as known citations."
+      >
+        <EvidencePicker options={evidence} selected={evidenceIds} onChange={setEvidenceIds} />
+      </Field>
 
       <Field label="Abstract">
         <Textarea

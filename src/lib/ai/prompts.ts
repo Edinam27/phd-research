@@ -1,6 +1,7 @@
 import type { ChatMessage } from "./provider";
 import { TAXONOMY_COLUMNS } from "@/lib/taxonomy";
 import type { GuidelineSection, StudyType } from "@/lib/guideline";
+import type { EvidenceReview } from "@/lib/manuscripts";
 import type { Manuscript, Notebook, Review } from "@/db/schema";
 
 type NotebookLike = Pick<
@@ -46,7 +47,7 @@ export function notebookContext(notebook: NotebookLike): string {
 }
 
 /** The literature matrix, rendered for the model. Keeps author-year anchors intact. */
-export function renderEvidence(reviews: Review[]): string {
+export function renderEvidence(reviews: EvidenceReview[]): string {
   if (reviews.length === 0) {
     return "(The evidence matrix is empty. Write only from the study design above and mark every external claim as [NEEDS SOURCE].)";
   }
@@ -168,7 +169,7 @@ export function manuscriptSectionMessages(input: {
   manuscript: Pick<Manuscript, "title" | "kind" | "studyType" | "targetJournal" | "abstract" | "keywords">;
   section: GuidelineSection;
   existingContent: string;
-  evidence: Review[];
+  evidence: EvidenceReview[];
   instruction?: string | null;
   neighbouringSections?: { heading: string; content: string }[];
 }): ChatMessage[] {
@@ -272,7 +273,7 @@ Report the JSON now.`,
 
 export function synthesisMessages(input: {
   notebook: NotebookLike;
-  reviews: Review[];
+  reviews: EvidenceReview[];
   focus?: string | null;
 }): ChatMessage[] {
   return [
@@ -367,7 +368,7 @@ Question: ${input.question}`,
 
 export function assistantMessages(input: {
   notebook: NotebookLike;
-  reviews: Review[];
+  reviews: EvidenceReview[];
   history: ChatMessage[];
   question: string;
 }): ChatMessage[] {

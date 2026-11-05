@@ -7,6 +7,7 @@ import { canEdit, requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
 import { assistantMessages } from "@/lib/ai/prompts";
 import { sseResponse, streamCompletion } from "@/lib/ai/provider";
+import { EVIDENCE_COLUMNS } from "@/lib/manuscripts";
 import { assistantSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ export async function POST(request: Request, { params }: Params) {
     const body = assistantSchema.parse(await readJson(request));
 
     const evidence = await db
-      .select()
+      .select(EVIDENCE_COLUMNS)
       .from(reviews)
       .where(eq(reviews.notebookId, id))
       .orderBy(desc(reviews.createdAt))

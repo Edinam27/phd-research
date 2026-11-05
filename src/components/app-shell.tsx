@@ -85,7 +85,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           K
         </div>
         <div className="min-w-0">
-          <p className="truncate font-serif text-[15px] leading-tight tracking-tight">Kadi Research Assistant</p>
+          <p className="truncate font-serif text-[15px] leading-tight tracking-tight">Kadi Research Studio</p>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
             review · synthesise · publish
           </p>
@@ -222,7 +222,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           </Button>
           <span className="flex items-center gap-2 font-serif text-[15px] tracking-tight">
             <BookOpenCheck className="size-4 text-accent" />
-            Kadi Research Assistant
+            Kadi Research Studio
           </span>
           <Badge tone="accent" className="ml-auto">
             {user.academicRole ?? "Researcher"}

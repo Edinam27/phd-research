@@ -102,7 +102,7 @@ export async function GET(request: Request, { params }: Params) {
 
     const { default: ExcelJS } = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Kadi Research Assistant";
+    workbook.creator = "Kadi Research Studio";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("Literature matrix", {

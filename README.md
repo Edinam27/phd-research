@@ -1,4 +1,4 @@
-# Kadi Research Assistant
+# Kadi Research Studio
 
 An article reviewer and proposal/article writer for doctoral research.
 

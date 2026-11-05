@@ -12,6 +12,7 @@ import {
   NotebookPen,
   Plus,
   Settings,
+  ShieldCheck,
   X,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ export type ShellUser = {
   institution: string | null;
   discipline: string | null;
   academicRole: string | null;
+  isAdmin: boolean;
 };
 
 const PRIMARY_NAV = [
@@ -34,6 +36,9 @@ const PRIMARY_NAV = [
   { href: "/usage", label: "Cost & usage", icon: Coins },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+/** Only administrators see the cross-workspace control room. */
+const ADMIN_NAV = { href: "/admin", label: "Administration", icon: ShieldCheck };
 
 export function AppShell({ user, children }: { user: ShellUser; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -71,15 +76,16 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   };
 
   const activeNotebookId = pathname.match(/^\/notebooks\/([^/]+)/)?.[1] ?? null;
+  const navItems = user.isAdmin ? [...PRIMARY_NAV, ADMIN_NAV] : PRIMARY_NAV;
 
   const sidebar = (
     <div className="flex h-full flex-col bg-ink text-white">
       <div className="flex items-center gap-2.5 px-4 py-4">
         <div className="grid size-8 shrink-0 place-items-center rounded-sm bg-accent font-serif text-[15px] font-semibold">
-          R
+          K
         </div>
         <div className="min-w-0">
-          <p className="truncate font-serif text-[15px] leading-tight tracking-tight">Research Studio</p>
+          <p className="truncate font-serif text-[15px] leading-tight tracking-tight">Kadi Research Assistant</p>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
             review · synthesise · publish
           </p>
@@ -95,7 +101,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </div>
 
       <nav className="px-2">
-        {PRIMARY_NAV.map((item) => {
+        {navItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
@@ -216,7 +222,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           </Button>
           <span className="flex items-center gap-2 font-serif text-[15px] tracking-tight">
             <BookOpenCheck className="size-4 text-accent" />
-            Research Studio
+            Kadi Research Assistant
           </span>
           <Badge tone="accent" className="ml-auto">
             {user.academicRole ?? "Researcher"}

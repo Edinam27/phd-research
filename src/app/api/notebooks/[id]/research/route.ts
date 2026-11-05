@@ -51,7 +51,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    await requireNotebookAccess(id, user.id);
+    await requireNotebookAccess(id, user.id, user.isAdmin);
 
     const rows = await db
       .select()

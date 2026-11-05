@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, getTableColumns } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -15,10 +15,26 @@ import { getSections, type GuidelineSection, type ManuscriptKind, type StudyType
 import { countWords } from "@/lib/utils";
 
 /**
+ * Every review column except the stored source text. Nothing that reads the
+ * matrix — the prompts, the pickers, the citation anchors — needs the article
+ * itself, and a single row's text ran to 127 kB in practice, so it stays in the
+ * database rather than travelling to the function on every request.
+ */
+const { sourceText: _unusedSourceText, ...reviewColumns } = getTableColumns(reviews);
+
+export const EVIDENCE_COLUMNS = reviewColumns;
+
+/** A review row with everything the prompts read, but not the source text. */
+export type EvidenceReview = Omit<Review, "sourceText">;
+
+/**
  * The reviews a manuscript is allowed to cite: its own selection when it has
  * one, otherwise every review in the notebook. Excluded rows never qualify.
  */
-export function selectEvidence(all: Review[], evidenceIds: string[]): Review[] {
+export function selectEvidence<T extends { id: string; verdict: string }>(
+  all: T[],
+  evidenceIds: string[],
+): T[] {
   const chosen = evidenceIds.length > 0 ? all.filter((review) => evidenceIds.includes(review.id)) : all;
   return chosen.filter((review) => review.verdict !== "exclude");
 }
@@ -32,18 +48,19 @@ export type ManuscriptContext = {
 export async function loadManuscriptContext(
   manuscriptId: string,
   userId: string,
+  isAdmin = false,
 ): Promise<ManuscriptContext> {
   const rows = await db.select().from(manuscripts).where(eq(manuscripts.id, manuscriptId)).limit(1);
   const manuscript = rows[0];
   if (!manuscript) throw new AccessError("Manuscript not found.", 404);
-  const { notebook, role } = await requireNotebookAccess(manuscript.notebookId, userId);
+  const { notebook, role } = await requireNotebookAccess(manuscript.notebookId, userId, isAdmin);
   return { manuscript, notebook, role };
 }
 
 export type SectionContext = ManuscriptContext & {
   section: ManuscriptSection;
   siblings: ManuscriptSection[];
-  evidence: Review[];
+  evidence: EvidenceReview[];
   template: GuidelineSection;
 };
 
@@ -65,7 +82,7 @@ export async function loadSectionContext(
 
   const [siblings, evidence] = await Promise.all([
     db.select().from(manuscriptSections).where(eq(manuscriptSections.manuscriptId, manuscriptId)),
-    db.select().from(reviews).where(eq(reviews.notebookId, context.manuscript.notebookId)),
+    db.select(EVIDENCE_COLUMNS).from(reviews).where(eq(reviews.notebookId, context.manuscript.notebookId)),
   ]);
 
   const template = templateFor(context.manuscript, section.sectionKey);

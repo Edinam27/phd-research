@@ -53,7 +53,7 @@ export async function GET(request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    const { notebook } = await requireNotebookAccess(id, user.id);
+    const { notebook } = await requireNotebookAccess(id, user.id, user.isAdmin);
 
     const rows = await db
       .select()
@@ -102,7 +102,7 @@ export async function GET(request: Request, { params }: Params) {
 
     const { default: ExcelJS } = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "PhD Research Studio";
+    workbook.creator = "Kadi Research Assistant";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("Literature matrix", {

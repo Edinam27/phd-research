@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    const { notebook, role } = await requireNotebookAccess(id, user.id);
+    const { notebook, role } = await requireNotebookAccess(id, user.id, user.isAdmin);
 
     const [reviewCount, manuscriptCount, researchCount, spend, members] = await Promise.all([
       db.select({ total: count() }).from(reviews).where(eq(reviews.notebookId, id)),

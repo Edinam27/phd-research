@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    await requireNotebookAccess(id, user.id);
+    await requireNotebookAccess(id, user.id, user.isAdmin);
 
     const url = new URL(request.url);
     const search = url.searchParams.get("q")?.trim();

@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PhD Research Studio",
-    template: "%s · PhD Research Studio",
+    default: "Kadi Research Assistant",
+    template: "%s · Kadi Research Assistant",
   },
   description:
     "Review literature against a fixed taxonomy, synthesise it, and draft publication-ready articles and proposals against your journal guideline.",

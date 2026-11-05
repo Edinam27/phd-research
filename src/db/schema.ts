@@ -27,6 +27,8 @@ export const users = pgTable(
     discipline: text("discipline"),
     /** PhD candidate, supervisor, lecturer, researcher ... */
     academicRole: text("academic_role").default("PhD Candidate"),
+    /** Sees every user and every workspace in the studio, read-only. */
+    isAdmin: boolean("is_admin").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

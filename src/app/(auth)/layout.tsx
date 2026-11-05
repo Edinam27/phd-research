@@ -33,9 +33,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative">
           <Link href="/" className="flex items-center gap-3">
             <span className="grid size-9 place-items-center rounded-sm bg-accent font-serif text-base font-semibold">
-              R
+              K
             </span>
-            <span className="font-serif text-lg tracking-tight">PhD Research Studio</span>
+            <span className="font-serif text-lg tracking-tight">Kadi Research Assistant</span>
           </Link>
 
           <h1 className="mt-14 max-w-xl font-serif text-[2.6rem] leading-[1.12] tracking-tight">
@@ -69,9 +69,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-8 flex items-center gap-2.5 lg:hidden">
             <span className="grid size-8 place-items-center rounded-sm bg-accent font-serif text-sm font-semibold text-white">
-              R
+              K
             </span>
-            <span className="font-serif text-base tracking-tight">PhD Research Studio</span>
+            <span className="font-serif text-base tracking-tight">Kadi Research Assistant</span>
           </Link>
           {children}
           <SetupStatus />

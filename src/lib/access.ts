@@ -42,6 +42,7 @@ export async function listNotebooksForUser(userId: string): Promise<
 export async function getNotebookAccess(
   notebookId: string,
   userId: string,
+  isAdmin = false,
 ): Promise<NotebookAccess | null> {
   if (!isUuid(notebookId)) return null;
 
@@ -59,6 +60,9 @@ export async function getNotebookAccess(
   if (!row) return null;
   if (row.notebook.ownerId === userId) return { notebook: row.notebook, role: "owner" };
   if (row.memberRole) return { notebook: row.notebook, role: row.memberRole as NotebookRole };
+  // An administrator may open any workspace, but only ever as a viewer, so
+  // every write path keeps turning them away.
+  if (isAdmin) return { notebook: row.notebook, role: "viewer" };
   return null;
 }
 
@@ -66,10 +70,16 @@ export async function getNotebookAccess(
 export async function requireNotebookAccess(
   notebookId: string,
   userId: string,
+  isAdmin = false,
 ): Promise<NotebookAccess> {
-  const access = await getNotebookAccess(notebookId, userId);
+  const access = await getNotebookAccess(notebookId, userId, isAdmin);
   if (!access) throw new AccessError("Notebook not found, or you do not have access to it.", 404);
   return access;
+}
+
+/** Guards the cross-workspace administrator area. */
+export function requireAdmin(user: { isAdmin: boolean }): void {
+  if (!user.isAdmin) throw new AccessError("This area is for studio administrators.", 403);
 }
 
 export function canEdit(role: NotebookRole): boolean {

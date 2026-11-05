@@ -1,4 +1,4 @@
-# PhD Research Studio
+# Kadi Research Assistant
 
 An article reviewer and proposal/article writer for doctoral research.
 
@@ -42,6 +42,7 @@ Then fill in `.env.local`:
 | `AI_MODEL_REASONING` | Extraction, taxonomy fill, drafting, synthesis. Default `google/gemini-2.5-flash` |
 | `AI_MODEL_FAST` | Cheap repair/formatting work. Default `google/gemini-2.5-flash-lite` |
 | `AI_FALLBACK_MODELS` | Tried in order if a tier's models fail. Default `deepseek/deepseek-chat-v3.1` |
+| `ADMIN_EMAILS` | Optional, comma-separated. Those accounts see `/admin` — every user and every workspace, read-only. See §9 |
 
 Each model variable accepts a comma-separated list; the first model that answers is used, then the fallback list, before the call reports failure.
 
@@ -95,6 +96,7 @@ Everything is scoped to a **notebook** — one notebook per study, thesis stream
 **Global**
 - *Cost & usage* (`/usage`) — every AI call is logged with model, token counts, latency, cost, and errors, grouped by feature and model over a selectable window.
 - *Settings* (`/settings`) — profile, system status, model/cost configuration, data-and-privacy notes, sign out.
+- *Administration* (`/admin`) — administrators only. Every account in the studio with what it owns and what it spends, every workspace with its owner, shape and contents, and every draft with its section progress. Rows link straight into the workspace. Opening somebody else's notebook is read-only: no drafting, editing, or deleting. Access is granted by the `users.is_admin` column, or by listing an address in `ADMIN_EMAILS`, which is how the first administrator is created.
 
 ## 6. Cost and quality
 
@@ -113,11 +115,11 @@ The default configuration is deliberately cheap-but-grounded:
 src/
   app/
     (auth)/            login, register
-    (app)/             dashboard, usage, settings,
+    (app)/             dashboard, usage, settings, admin,
                        notebooks/[id]/{reviews,review,manuscripts,research,team}
     api/               auth, notebooks, reviews (+analyze), manuscripts,
                        sections (draft/audit), research, synthesis,
-                       assistant, export, usage, health
+                       assistant, export, usage, health, admin
   components/          UI, one client component per screen
   db/                  Drizzle schema, lazy Neon client, seed
   lib/
@@ -133,3 +135,30 @@ src/
 ## 8. Data model
 
 `users` → `notebooks` (owner) → `notebook_members` (roles) → `reviews` (the taxonomy rows), `manuscripts` → `manuscript_sections`, `research_queries`, and `ai_runs` (the cost ledger). Every read and write is authorised against the caller's membership in the notebook, so isolation is enforced server-side, not just hidden in the UI.
+
+A `users.is_admin` column sits outside that chain. It does not widen any write path: an administrator opens somebody else's notebook strictly as a viewer, so drafting, editing and deleting are refused exactly as they are for any other non-member.
+
+## 9. Deploying
+
+Push to a Git remote, then import the repository on [Vercel](https://vercel.com/new). Set every variable from §2 in **Project → Settings → Environment Variables** — `.env.local` is not uploaded, so the app will start without a database or a key if you skip this.
+
+`APP_URL` matters here: set it to the deployment domain (e.g. `https://kadi.vercel.app`) so redirects and OpenRouter's referrer header point at the right host.
+
+### Making yourself an administrator
+
+The first administrator cannot be flagged from inside the app — the flag is something you set from outside it. The simplest route is the allowlist:
+
+1. Vercel → your project → **Settings → Environment Variables**.
+2. Add `ADMIN_EMAILS`, value = the address you registered with (**Production**, and Preview if you want it there too).
+3. **Redeploy** — environment changes only reach running functions on a new deployment.
+4. Sign in and open `/admin`. The **Administration** entry appears in the sidebar.
+
+To allow more, either comma-separate them (`you@uni.edu, supervisor@uni.edu`) or promote an account durably in SQL, which survives any env change:
+
+```sql
+update users set is_admin = true where email = 'you@uni.edu';
+```
+
+Both are honoured: `isAdministrator()` treats an account as an administrator if the column is set **or** its address is on the allowlist.
+
+Note that `ADMIN_EMAILS` is matched case-insensitively against the registered address, so an account that signs up with different capitalisation still matches.

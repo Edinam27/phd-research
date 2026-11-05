@@ -38,7 +38,22 @@ export function safeEqual(a: string, b: string): boolean {
 export type SessionUser = Pick<
   User,
   "id" | "email" | "name" | "institution" | "discipline" | "academicRole"
->;
+> & { isAdmin: boolean };
+
+/**
+ * The `users.is_admin` column is the durable flag, but a fresh deployment has
+ * nobody carrying it. Listing an address in ADMIN_EMAILS makes that account an
+ * administrator from its next request, so the studio never locks its own owner
+ * out — the column is there for every admin after that.
+ */
+export function isAdministrator(user: { email: string; isAdmin: boolean | null }): boolean {
+  if (user.isAdmin) return true;
+  const allowlist = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => normalizeEmail(email))
+    .filter(Boolean);
+  return allowlist.includes(normalizeEmail(user.email));
+}
 
 /** Issues a session row and writes the httpOnly cookie. Route handlers only. */
 export async function createSession(userId: string): Promise<void> {
@@ -79,13 +94,16 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       institution: users.institution,
       discipline: users.discipline,
       academicRole: users.academicRole,
+      isAdmin: users.isAdmin,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
     .limit(1);
 
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (!row) return null;
+  return { ...row, isAdmin: isAdministrator(row) };
 }
 
 export async function requireUser(): Promise<SessionUser> {

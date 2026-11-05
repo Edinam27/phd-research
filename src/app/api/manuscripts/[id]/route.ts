@@ -26,10 +26,25 @@ export async function GET(_request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    const { manuscript, notebook, role } = await loadManuscriptContext(id, user.id);
-    const sections = await loadSections(id);
+    // The sections only need the URL's id, so they load alongside the access
+    // check instead of queueing behind it — one less trip to Neon per page view.
+    const [{ manuscript, notebook, role }, sections] = await Promise.all([
+      loadManuscriptContext(id, user.id, user.isAdmin),
+      loadSections(id),
+    ]);
 
-    const evidence = await db.select().from(reviews).where(eq(reviews.notebookId, manuscript.notebookId));
+    // Just enough of each row for the evidence picker and the citation anchors.
+    // The stored article text stays in the database.
+    const evidence = await db
+      .select({
+        id: reviews.id,
+        author: reviews.author,
+        year: reviews.year,
+        title: reviews.title,
+        verdict: reviews.verdict,
+      })
+      .from(reviews)
+      .where(eq(reviews.notebookId, manuscript.notebookId));
     const cited = selectEvidence(evidence, manuscript.evidenceIds);
     const anchors = cited.map((review) => `${review.author}${review.year ? ` (${review.year})` : ""}`);
 
@@ -41,13 +56,7 @@ export async function GET(_request: Request, { params }: Params) {
       role,
       sections,
       progress: sectionProgress(sections),
-      evidence: evidence.map((review) => ({
-        id: review.id,
-        author: review.author,
-        year: review.year,
-        title: review.title,
-        verdict: review.verdict,
-      })),
+      evidence,
       uncited: uncitedAnchors(
         sections.map((section) => section.content).join("\n\n"),
         anchors,

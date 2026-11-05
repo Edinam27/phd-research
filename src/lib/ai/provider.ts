@@ -258,7 +258,7 @@ async function postChat(
 
   if (resolved.provider === "openrouter") {
     headers["HTTP-Referer"] = process.env.APP_URL ?? "http://localhost:3000";
-    headers["X-Title"] = "PhD Research Studio";
+    headers["X-Title"] = "Kadi Research Assistant";
   }
 
   return fetch(`${resolved.baseUrl}/chat/completions`, {

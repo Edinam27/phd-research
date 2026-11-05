@@ -12,11 +12,11 @@ export const runtime = "nodejs";
 
 type Params = { params: Promise<{ id: string }> };
 
-async function loadReview(reviewId: string, userId: string) {
+async function loadReview(reviewId: string, userId: string, isAdmin = false) {
   const rows = await db.select().from(reviews).where(eq(reviews.id, reviewId)).limit(1);
   const review = rows[0];
   if (!review) throw new AccessError("Review not found.", 404);
-  const access = await requireNotebookAccess(review.notebookId, userId);
+  const access = await requireNotebookAccess(review.notebookId, userId, isAdmin);
   return { review, access };
 }
 
@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (!user) return fail("Sign in to continue.", 401);
 
     const { id } = await params;
-    const { review, access } = await loadReview(id, user.id);
+    const { review, access } = await loadReview(id, user.id, user.isAdmin);
     return ok({ review, notebook: access.notebook, role: access.role });
   } catch (error) {
     return toErrorResponse(error);

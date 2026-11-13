@@ -298,6 +298,8 @@ Return STRICT JSON only:
 
 Ground every statement in the supplied matrix. Where the matrix is too thin to support a claim, say so in the relevant field instead of inventing it. Use author-year anchors. Hypothesis labels must be sequential and each hypothesis directional.
 
+Keep the whole object inside a tight budget: at most 8 themes, 6 theories, 6 methods, 6 contexts, 6 consensus points, 5 contradictions, 8 gaps, 6 research questions, 6 hypotheses and 8 outline entries — the strongest ones, not every candidate. Two or three sentences per summary. Never put a literal line break inside a string. Finish the object: an answer that stops part-way through is discarded, so prefer a shorter complete answer over a longer unfinished one.
+
 ${ACADEMIC_RULES}`,
     },
     {

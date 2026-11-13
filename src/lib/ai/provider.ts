@@ -608,35 +608,101 @@ export function sseResponse(stream: ReadableStream<Uint8Array>): Response {
   return new Response(stream, { headers: EVENT_STREAM_HEADERS });
 }
 
-/** Pulls a JSON object out of a model answer that may be fenced or chatty. */
+/** Pulls a JSON object or array out of a model answer that may be fenced or chatty. */
 export function extractJson<T>(text: string): T | null {
-  const candidates: string[] = [text.trim()];
+  const normalised = text.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
+  const fenced = normalised.match(/```(?:json)?\s*([\s\S]*?)```/i);
 
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidates = [normalised.trim()];
   if (fenced?.[1]) candidates.push(fenced[1].trim());
-
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    candidates.push(text.slice(firstBrace, lastBrace + 1));
-  }
-
-  const firstBracket = text.indexOf("[");
-  const lastBracket = text.lastIndexOf("]");
-  if (firstBracket >= 0 && lastBracket > firstBracket) {
-    candidates.push(text.slice(firstBracket, lastBracket + 1));
-  }
+  const salvaged = salvageJson(normalised);
+  if (salvaged) candidates.push(salvaged);
 
   for (const candidate of candidates) {
-    const cleaned = candidate
-      .replace(/[\u201c\u201d]/g, '"')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/,\s*([}\]])/g, "$1");
     try {
-      return JSON.parse(cleaned) as T;
+      return JSON.parse(candidate) as T;
     } catch {
-      // try the next candidate
+      // A trailing comma before a closing bracket is the one lapse worth fixing.
+      try {
+        return JSON.parse(candidate.replace(/,\s*([}\]])/g, "$1")) as T;
+      } catch {
+        // try the next candidate
+      }
     }
   }
   return null;
+}
+
+/**
+ * Rebuilds the JSON value a model began writing, tolerating the two things that
+ * break parsing in practice: literal control characters inside long strings
+ * (models write real newlines into prose) and an answer that ran into the token
+ * ceiling. A cut-off object is closed at its last complete entry, so the
+ * finished parts survive instead of the whole answer being thrown away.
+ */
+function salvageJson(text: string): string | null {
+  const brace = text.indexOf("{");
+  const bracket = text.indexOf("[");
+  const start = brace < 0 ? bracket : bracket < 0 ? brace : Math.min(brace, bracket);
+  if (start < 0) return null;
+
+  const out: string[] = [];
+  const open: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        out.push(char);
+        escaped = false;
+      } else if (char === "\\") {
+        out.push(char);
+        escaped = true;
+      } else if (char === '"') {
+        out.push(char);
+        inString = false;
+      } else if (char === "\n") {
+        out.push("\\n");
+      } else if (char === "\r") {
+        out.push("\\r");
+      } else if (char === "\t") {
+        out.push("\\t");
+      } else if (char >= " ") {
+        out.push(char);
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      out.push(char);
+    } else if (char === "{" || char === "[") {
+      open.push(char);
+      out.push(char);
+    } else if (char === "}" || char === "]") {
+      if (open.length === 0) break;
+      open.pop();
+      out.push(char);
+      if (open.length === 0) return out.join("");
+    } else {
+      out.push(char);
+    }
+  }
+
+  // Ran out of text mid-value. Close the string, drop a trailing key or comma
+  // that never got its value, then close every container still open.
+  let repaired = out.join("");
+  if (inString) repaired += '"';
+  repaired = repaired.replace(/,\s*$/, "");
+  repaired = repaired.replace(/"(?:[^"\\]|\\.)*"\s*:\s*$/, "");
+  if (open[open.length - 1] === "{") repaired = repaired.replace(/,\s*"(?:[^"\\]|\\.)*"\s*$/, "");
+  repaired = repaired.replace(/,\s*$/, "");
+  for (let index = open.length - 1; index >= 0; index -= 1) {
+    repaired += open[index] === "{" ? "}" : "]";
+  }
+
+  return repaired;
 }

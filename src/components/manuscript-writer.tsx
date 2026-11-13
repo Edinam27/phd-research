@@ -375,10 +375,11 @@ export function ManuscriptWriter() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => downloadFile(`/api/manuscripts/${manuscriptId}/export`)}
+              title="Download the manuscript as a Word document"
+              onClick={() => downloadFile(`/api/manuscripts/${manuscriptId}/export?format=docx`)}
             >
               <Download className="size-3.5" />
-              Download
+              Word
             </Button>
             <Button size="sm" onClick={() => setSettingsOpen(true)} disabled={!canEdit}>
               <Settings className="size-3.5" />

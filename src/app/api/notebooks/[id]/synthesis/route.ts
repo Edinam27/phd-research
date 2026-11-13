@@ -136,7 +136,7 @@ export async function POST(request: Request, { params }: Params) {
       {
         tier: "reasoning",
         temperature: 0.25,
-        maxTokens: 6000,
+        maxTokens: 12000,
         messages: synthesisMessages({ notebook, reviews: evidence, focus: body.focus ?? null }),
       },
       { userId: user.id, notebookId: id, feature: "synthesis" },

@@ -58,6 +58,17 @@ export async function GET(request: Request, { params }: Params) {
       );
     }
 
+    if (format === "docx") {
+      const { buildManuscriptDocx } = await import("@/lib/manuscript-docx");
+      const buffer = await buildManuscriptDocx({ manuscript, notebook, sections, words });
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${slug(manuscript.title)}.docx"`,
+        },
+      });
+    }
+
     const header = [
       `# ${manuscript.title}`,
       "",

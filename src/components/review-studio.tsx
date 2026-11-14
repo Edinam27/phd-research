@@ -13,6 +13,7 @@ import {
   Sparkles,
   Table2,
   Upload,
+  X,
 } from "lucide-react";
 
 import { PageBody, PageHeader } from "@/components/page-header";
@@ -45,6 +46,40 @@ type Mode = "file" | "paste";
 type SourceKind = "pdf" | "docx" | "text" | "pasted";
 
 type AnalyzeSource = { filename: string | null; kind: string; chars: number };
+
+/** Where one file in a batch has got to. */
+type QueueStatus = "pending" | "drafting" | "drafted" | "saved" | "error";
+
+type QueueItem = {
+  id: string;
+  file: File;
+  status: QueueStatus;
+  error: string | null;
+};
+
+const QUEUE_TONE: Record<QueueStatus, "neutral" | "accent" | "good" | "bad"> = {
+  pending: "neutral",
+  drafting: "accent",
+  drafted: "accent",
+  saved: "good",
+  error: "bad",
+};
+
+function patchQueue(queue: QueueItem[], index: number, patch: Partial<QueueItem>): QueueItem[] {
+  return queue.map((item, position) => (position === index ? { ...item, ...patch } : item));
+}
+
+/** The next file still needing work, so a batch can roll on after a save. */
+function nextUnfinished(queue: QueueItem[], from: number): number {
+  for (let position = from + 1; position < queue.length; position += 1) {
+    if (queue[position].status === "pending") return position;
+  }
+  // Anything left that errored, so a failed file is not silently dropped.
+  for (let position = from + 1; position < queue.length; position += 1) {
+    if (queue[position].status !== "saved") return position;
+  }
+  return -1;
+}
 
 type AnalyzeResult = {
   draft: Partial<Review>;
@@ -98,7 +133,9 @@ export function ReviewStudio() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<Mode>("file");
-  const [file, setFile] = useState<File | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [autoRoll, setAutoRoll] = useState(false);
   const [pasted, setPasted] = useState("");
   const [focusNote, setFocusNote] = useState("");
 
@@ -154,19 +191,81 @@ export function ReviewStudio() {
   }, [notebookId]);
 
   const canEdit = detail !== null && detail.role !== "viewer";
-  const canAnalyze = !analyzing && (mode === "file" ? file !== null : pasted.trim().length >= 200);
+  const activeItem = queue[activeIndex] ?? null;
+  const activeFile = activeItem?.file ?? null;
+  const queued = queue.length;
+  const settled = queue.filter((item) => item.status === "saved").length;
+  const canAnalyze =
+    !analyzing && (mode === "file" ? activeFile !== null : pasted.trim().length >= 200);
 
   const scrollToEditor = () => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  /* ---- The batch of files --------------------------------------------- */
+
+  /** A draft belongs to one file, so anything that changes the file clears it. */
+  const resetDraft = () => {
+    setAnalysis(null);
+    setSeed(null);
+    setEditingId(null);
+    setSavedId(null);
+    setAnalyzeError(null);
+    setSaveError(null);
+    setFormKey((key) => key + 1);
+  };
+
+  const acceptFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const stamp = Date.now();
+    setQueue(
+      Array.from(list).map((entry, position) => ({
+        id: `${entry.name}-${entry.size}-${stamp}-${position}`,
+        file: entry,
+        status: "pending" as const,
+        error: null,
+      })),
+    );
+    setActiveIndex(0);
+    setAutoRoll(false);
+    resetDraft();
+  };
+
+  const clearQueue = () => {
+    setQueue([]);
+    setActiveIndex(0);
+    setAutoRoll(false);
+    resetDraft();
+  };
+
+  const selectQueued = (index: number) => {
+    if (index === activeIndex) return;
+    setActiveIndex(index);
+    setAutoRoll(false);
+    resetDraft();
+  };
+
+  const removeQueued = (index: number) => {
+    const next = queue.filter((_item, position) => position !== index);
+    setQueue(next);
+    setAutoRoll(false);
+    if (index === activeIndex) {
+      setActiveIndex(Math.max(0, Math.min(index, next.length - 1)));
+      resetDraft();
+    } else if (index < activeIndex) {
+      setActiveIndex(activeIndex - 1);
+    }
+  };
+
   /* ---- Step 1: analyse ------------------------------------------------ */
 
-  const analyze = async () => {
+  const analyze = async (index = activeIndex) => {
+    const file = mode === "file" ? (queue[index]?.file ?? null) : null;
     if (mode === "file" && !file) return;
     if (mode === "paste" && pasted.trim().length < 200) return;
 
     setAnalyzing(true);
     setAnalyzeError(null);
     setSavedId(null);
+    if (mode === "file") setQueue((current) => patchQueue(current, index, { status: "drafting", error: null }));
 
     try {
       let result: AnalyzeResult;
@@ -200,17 +299,31 @@ export function ReviewStudio() {
       setEditingId(null);
       setSaveError(null);
       setFormKey((key) => key + 1);
+      if (mode === "file") setQueue((current) => patchQueue(current, index, { status: "drafted", error: null }));
       window.requestAnimationFrame(() => stepTwoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (thrown) {
-      setAnalyzeError(
+      const message =
         thrown instanceof ApiError || thrown instanceof ArticleReadError
           ? thrown.message
-          : "The reviewer could not read that article. Please try again.",
-      );
+          : "The reviewer could not read that article. Please try again.";
+      setAnalyzeError(message);
+      if (mode === "file") {
+        setQueue((current) => patchQueue(current, index, { status: "error", error: message }));
+      }
     } finally {
       setAnalyzing(false);
     }
   };
+
+  // Rolling a batch: once a row is filed, the next queued file is drafted
+  // without the verifier having to press anything.
+  useEffect(() => {
+    if (!autoRoll || analyzing || !canEdit || mode !== "file") return;
+    if (queue[activeIndex]?.status !== "pending") return;
+    setAutoRoll(false);
+    void analyze(activeIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRoll, activeIndex, queue, analyzing, canEdit, mode]);
 
   /* ---- Step 3: save --------------------------------------------------- */
 
@@ -233,8 +346,9 @@ export function ReviewStudio() {
       } else {
         const body: Record<string, unknown> = { ...withRefs };
         if (analysis) {
-          body.sourceKind = resolveSourceKind(analysis.source, mode, file?.name ?? null);
-          body.sourceFilename = analysis.source?.filename ?? file?.name ?? null;
+          const name = analysis.source?.filename ?? activeFile?.name ?? null;
+          body.sourceKind = resolveSourceKind(analysis.source, mode, name);
+          body.sourceFilename = name;
           body.sourceChars = analysis.source?.chars ?? (mode === "paste" ? pasted.trim().length : null);
           body.aiModel = analysis.model;
           if (mode === "paste" && pasted.trim()) body.sourceText = pasted.trim();
@@ -247,11 +361,21 @@ export function ReviewStudio() {
       setAnalysis(null);
       setSeed(null);
       setEditingId(null);
-      setFile(null);
-      setPasted("");
-      setFocusNote("");
       setFormKey((key) => key + 1);
       await loadReviews();
+
+      // In a batch, filing one row hands the next file straight to the reviewer
+      // so the verifier can work down the list without touching Step 1 again.
+      if (mode === "file") {
+        const settled = patchQueue(queue, activeIndex, { status: "saved", error: null });
+        const next = editingId ? -1 : nextUnfinished(settled, activeIndex);
+        setQueue(settled);
+        if (next !== -1) setActiveIndex(next);
+        setAutoRoll(next !== -1);
+      } else {
+        setPasted("");
+        setFocusNote("");
+      }
     } catch (thrown) {
       setSaveError(thrown instanceof ApiError ? thrown.message : "Could not save this review.");
     } finally {
@@ -334,8 +458,8 @@ export function ReviewStudio() {
     <div>
       <PageHeader
         eyebrow="Article reviewer"
-        title="Review one article against the taxonomy"
-        subtitle="Supply one article — upload the file or paste the text — and the AI fills the eleven TAXONOMY.xlsx columns. You verify every cell against the source before it enters the evidence matrix."
+        title="Review articles against the taxonomy"
+        subtitle="Supply one article or a whole batch — upload the files or paste the text — and the AI fills the eleven TAXONOMY.xlsx columns. You verify every cell against the source before it enters the evidence matrix."
         crumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: detail.notebook.title, href: base },
@@ -377,13 +501,18 @@ export function ReviewStudio() {
 
                 {mode === "file" ? (
                   <Field
-                    label="Article file"
-                    hint="PDF, DOCX or TXT. A PDF is read in your browser, so only its text is uploaded — the file stays on your machine."
+                    label="Article files"
+                    hint="PDF, DOCX or TXT — select as many as you like and they are reviewed one after another. A PDF is read in your browser, so only its text is uploaded — the files stay on your machine."
                   >
                     <input
                       type="file"
                       accept=".pdf,.docx,.txt"
-                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                      multiple
+                      onChange={(event) => {
+                        acceptFiles(event.target.files);
+                        // Let the same file be re-picked after a mistake.
+                        event.target.value = "";
+                      }}
                       disabled={analyzing}
                       className="block w-full cursor-pointer rounded-sm border border-line-2 bg-card px-3 py-2 text-sm text-ink-2 file:mr-3 file:rounded-xs file:border file:border-line-2 file:bg-paper-2 file:px-2.5 file:py-1 file:text-[12px] file:font-medium file:text-ink-2 hover:file:border-ink/40"
                     />
@@ -404,6 +533,65 @@ export function ReviewStudio() {
                   </Field>
                 )}
 
+                {mode === "file" && queue.length > 0 ? (
+                  <div className="overflow-hidden rounded-sm border border-line">
+                    <div className="flex items-center justify-between gap-2 border-b border-line bg-paper-2 px-3 py-1.5">
+                      <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">
+                        {settled} of {queue.length} filed
+                      </span>
+                      <button
+                        type="button"
+                        onClick={clearQueue}
+                        disabled={analyzing}
+                        className="text-[11.5px] font-medium text-muted transition-colors hover:text-bad disabled:opacity-60"
+                      >
+                        Clear the batch
+                      </button>
+                    </div>
+                    <ul className="max-h-44 divide-y divide-line overflow-y-auto">
+                      {queue.map((item, index) => (
+                        <li
+                          key={item.id}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5",
+                            index === activeIndex && "bg-accent-soft/40",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => selectQueued(index)}
+                            disabled={analyzing}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-not-allowed"
+                          >
+                            <span className="font-mono text-[10.5px] text-muted">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-2">
+                              {item.file.name}
+                            </span>
+                            <Badge tone={QUEUE_TONE[item.status]}>{item.status}</Badge>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeQueued(index)}
+                            disabled={analyzing}
+                            aria-label={`Remove ${item.file.name}`}
+                            className="shrink-0 text-muted transition-colors hover:text-bad disabled:opacity-60"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {queue.length > 1 ? (
+                      <p className="border-t border-line px-3 py-1.5 text-[11.5px] text-muted">
+                        Filing a row moves on to the next file automatically. Moving to a file you have not drafted
+                        yet costs one AI call when you press the button below.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <Field
                   label="Focus note"
                   hint="Tell the reviewer what to look for — e.g. 'scrutinise the sampling frame and how service quality is measured'."
@@ -419,7 +607,9 @@ export function ReviewStudio() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Button variant="primary" onClick={() => void analyze()} disabled={!canEdit || !canAnalyze}>
                     {analyzing ? <Spinner className="size-3.5" /> : <Sparkles className="size-3.5" />}
-                    Draft the taxonomy row
+                    {mode === "file" && queue.length > 1
+                      ? `Draft the taxonomy row (${activeIndex + 1} of ${queue.length})`
+                      : "Draft the taxonomy row"}
                   </Button>
                   {!canEdit ? (
                     <span className="text-[12px] text-muted">You have read-only access to this notebook.</span>
@@ -429,7 +619,9 @@ export function ReviewStudio() {
                 {analyzing ? (
                   <p className="flex items-center gap-2 text-[13px] text-muted">
                     <Spinner className="size-3.5" />
-                    Reading the article and filling the eleven taxonomy columns — this can take a minute…
+                    Reading{" "}
+                    {mode === "file" && activeFile ? activeFile.name : "the article"} and filling the eleven taxonomy
+                    columns — this can take a minute…
                   </p>
                 ) : null}
 
@@ -443,7 +635,11 @@ export function ReviewStudio() {
                 <CardHeader
                   eyebrow="Step 2"
                   title="The AI draft"
-                  description="One row of the taxonomy, exactly as the model read it. Nothing here is saved yet."
+                  description={
+                    mode === "file" && activeFile && queue.length > 1
+                      ? `One row of the taxonomy, exactly as the model read it — for ${activeFile.name}. Nothing here is saved yet.`
+                      : "One row of the taxonomy, exactly as the model read it. Nothing here is saved yet."
+                  }
                 />
                 <div className="space-y-4 px-5 py-4">
                   {analysis && completeness ? (
@@ -533,7 +729,8 @@ export function ReviewStudio() {
                   {savedId ? (
                     <div className="mb-4">
                       <Alert tone="good" title="Saved to the evidence matrix">
-                        The row is now part of this notebook&apos;s matrix.{" "}
+                        The row is now part of this notebook&apos;s matrix.
+                        {queue.length > 1 ? ` ${settled} of ${queue.length} files filed so far.` : ""}{" "}
                         <Link href={`${base}/reviews`} className="text-accent-ink underline underline-offset-2">
                           See it in the evidence matrix
                         </Link>
@@ -546,7 +743,11 @@ export function ReviewStudio() {
                     key={formKey}
                     initial={seed ?? undefined}
                     onSubmit={save}
-                    submitLabel="Save to the evidence matrix"
+                    submitLabel={
+                      mode === "file" && !editingId && queue.length > 1
+                        ? `File this row (${activeIndex + 1} of ${queue.length})`
+                        : "Save to the evidence matrix"
+                    }
                     busy={saving}
                     error={saveError}
                     readOnly={!canEdit}

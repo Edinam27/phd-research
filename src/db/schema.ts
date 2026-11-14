@@ -112,6 +112,27 @@ export const notebookMembers = pgTable(
 /* Article reviews — the TAXONOMY.xlsx matrix, one row per article     */
 /* ------------------------------------------------------------------ */
 
+/** What part of the reviewed article a cited work plays. */
+export const REFERENCE_ROLES = ["theory", "concept", "prior-evidence", "method", "context"] as const;
+export type ReferenceRole = (typeof REFERENCE_ROLES)[number];
+
+/**
+ * One work named in a reviewed article's own text and reference list. These are
+ * the works the article leans on rather than its incidental bibliography, so the
+ * manuscript can cite them with an honest "as cited in" attribution.
+ */
+export type CitedReference = {
+  /** Surname(s) exactly as they should read in an anchor: "Smith" or "Smith and Jones". */
+  authors: string;
+  year: number | null;
+  title: string;
+  /** Journal, publisher or book title the work appeared in. */
+  source: string | null;
+  role: ReferenceRole;
+  /** One line on how the reviewed article uses it. */
+  note: string | null;
+};
+
 export const reviews = pgTable(
   "reviews",
   {
@@ -154,6 +175,12 @@ export const reviews = pgTable(
     hypotheses: jsonb("hypotheses").$type<string[]>().default([]).notNull(),
     gapTags: jsonb("gap_tags").$type<string[]>().default([]).notNull(),
     useInManuscript: text("use_in_manuscript"),
+    /**
+     * Works this article itself cites and leans on — its theory, key concepts
+     * and the studies it argues against. Extracted from the article's own
+     * reference list so the manuscript can cite them as secondary sources.
+     */
+    citedReferences: jsonb("cited_references").$type<CitedReference[]>().default([]).notNull(),
 
     /* ---- critical appraisal scorecard ---- */
     scoreRigour: integer("score_rigour"),
@@ -214,6 +241,12 @@ export const manuscripts = pgTable(
      * manuscript could choose a subset.
      */
     evidenceIds: jsonb("evidence_ids").$type<string[]>().default([]).notNull(),
+    /**
+     * Which entries of the notebook's reference library this manuscript may
+     * cite as secondary sources. Empty means the whole library. Keys come from
+     * `referenceKey()` in src/lib/references.ts.
+     */
+    referenceKeys: jsonb("reference_keys").$type<string[]>().default([]).notNull(),
     /** draft | internal-review | supervisor-review | ready | submitted | published */
     status: text("status").default("draft").notNull(),
     abstract: text("abstract"),

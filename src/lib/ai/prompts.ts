@@ -1,4 +1,5 @@
 import type { ChatMessage } from "./provider";
+import { renderBibliography, renderLibrary, type LibraryEntry } from "@/lib/references";
 import { TAXONOMY_COLUMNS } from "@/lib/taxonomy";
 import type { GuidelineSection, StudyType } from "@/lib/guideline";
 import type { EvidenceReview } from "@/lib/manuscripts";
@@ -18,12 +19,55 @@ type NotebookLike = Pick<
   | "context"
 >;
 
+/** Total source-text budget handed to the model for one article. */
 export const MAX_SOURCE_CHARS = Number(process.env.AI_MAX_INPUT_CHARS ?? 60000);
+
+/**
+ * How much of that budget is reserved for the END of the document. A journal
+ * article keeps its reference list — and its conclusion — at the back, so
+ * truncating purely from the front discarded exactly the material that shows
+ * which works the article leans on.
+ */
+export const MAX_SOURCE_TAIL_CHARS = Number(process.env.AI_MAX_TAIL_CHARS ?? 20000);
+
+/** Head plus tail of an over-long document, with the omitted middle marked. */
+export function windowSource(text: string): { text: string; elided: boolean } {
+  const tailChars = Math.max(0, Math.min(MAX_SOURCE_TAIL_CHARS, Math.floor(MAX_SOURCE_CHARS / 2)));
+  if (text.length <= MAX_SOURCE_CHARS || tailChars === 0) {
+    return { text: text.slice(0, MAX_SOURCE_CHARS), elided: text.length > MAX_SOURCE_CHARS };
+  }
+  const headChars = Math.max(0, MAX_SOURCE_CHARS - tailChars);
+  return {
+    text: `${text.slice(0, headChars)}\n\n[... the middle of this document is omitted for length ...]\n\n${text.slice(-tailChars)}`,
+    elided: true,
+  };
+}
+
+/** Shared extraction contract for the cited works of an article. */
+const CITED_REFERENCE_SHAPE = `"citedReferences": [
+    {
+      "authors": "Surname(s) as they should read in an anchor: 'Smith' or 'Smith and Jones'",
+      "year": 2018,
+      "title": "Title of the cited work",
+      "source": "Journal, book or publisher it appeared in, or an empty string",
+      "role": "theory | concept | prior-evidence | method | context",
+      "note": "one line on how the article uses this work"
+    }
+  ]`;
+
+const CITED_REFERENCE_RULES = `Extracting the works the article leans on:
+- Name ONLY works the article genuinely uses: the theory it adopts, the concepts it defines or borrows, the studies it reports, argues with, or builds its hypotheses from, and the sources of its instruments or methods. Skip incidental names dropped into a list of examples.
+- Read both the running text and the article's reference list at the end. The reference list confirms the full titles, years and outlets.
+- "role" is the part that work plays IN THIS ARTICLE: theory, concept, prior-evidence, method or context.
+- Give 5 to 15 entries — the works that would appear in a literature review of this topic. Fewer, precise entries beat a long list.
+- Never invent a work, an author, a year or a title. If the article's reference list is not visible in the supplied text, return an empty array rather than guessing.
+- Prefer a work the article names in its own argument over one that only appears in the reference list and nowhere in the text.`;
 
 const ACADEMIC_RULES = `Non-negotiable rules:
 - Write in formal academic English. No bullet points unless the section explicitly calls for a list.
 - Never fabricate a finding, statistic, sample size, quotation or citation. If something is not in the supplied evidence, either omit it or mark it as [NEEDS SOURCE] and state what must be found.
-- Cite only works that appear in the supplied evidence matrix, in the form Author (Year) or (Author, Year). Never invent an author, year, journal or DOI.
+- Cite directly only works that appear in the supplied evidence matrix, in the form Author (Year) or (Author, Year). Never invent an author, year, journal or DOI.
+- A work you have not read yourself may only be cited as a secondary source — "Smith (2019, as cited in Jones, 2021)" — naming the article from the evidence matrix it was found in. Never present a secondary source as though you had read it.
 - Be specific. Prefer numbers, constructs, theory names and contexts over generic filler.
 - Never use the words "delve", "tapestry", "landscape of", "in today's world" or "it is worth noting".`;
 
@@ -91,8 +135,7 @@ export function articleReviewMessages(input: {
   filename?: string | null;
   focusNote?: string | null;
 }): ChatMessage[] {
-  const truncated = input.sourceText.slice(0, MAX_SOURCE_CHARS);
-  const wasTruncated = input.sourceText.length > MAX_SOURCE_CHARS;
+  const windowed = windowSource(input.sourceText);
 
   return [
     {
@@ -127,7 +170,8 @@ Return STRICT JSON only — no prose before or after, no markdown fences. Shape:
   "strengths": "Two to three sentences, methodological and conceptual strengths.",
   "weaknesses": "Two to three sentences, the weaknesses that create an opening for this PhD study.",
   "relevanceNote": "Precisely how this article serves the candidate's objectives: which variable, which section of the manuscript, and which gap.",
-  "useInManuscript": "e.g. 'Literature review, hypothesis 2 on the mediating role of X'"
+  "useInManuscript": "e.g. 'Literature review, hypothesis 2 on the mediating role of X'",
+  ${CITED_REFERENCE_SHAPE}
 }
 
 Field guide for the matrix columns:
@@ -141,6 +185,8 @@ Transcription rule — you are transcribing this article's own metadata, NOT rec
 - Authors are the field most often invented. If the supplied text has no author line or byline — for example a bare abstract — then "authors" MUST be "" and the citation MUST be a placeholder such as "[Author]. [Title]." A name that "sounds like" the work is a fabrication, even if the first author of a real paper on this topic would fit.
 - A blank field is correct and useful; a fabricated reference is a serious error that invalidates the candidate's matrix. A short extract such as an abstract will legitimately leave several of these fields blank.
 
+${CITED_REFERENCE_RULES}
+
 ${ACADEMIC_RULES}`,
     },
     {
@@ -151,9 +197,53 @@ ${notebookContext(input.notebook)}
 ${input.focusNote ? `The candidate has asked you to pay particular attention to: ${input.focusNote}\n` : ""}
 Article to review${input.filename ? ` (file: ${input.filename})` : ""}:
 """
-${truncated}
+${windowed.text}
 """
-${wasTruncated ? "\nNote: the document was truncated because of its length. Base every field only on what is visible above, and say so inside the relevant field if a section appears cut off." : ""}
+${windowed.elided ? "\nNote: the document was reduced to its beginning and its end because of its length; the middle is missing. Base every field only on what is visible above, and say so inside the relevant field if a section appears cut off." : ""}
+
+Return the JSON object now.`,
+    },
+  ];
+}
+
+/**
+ * Focused re-read of one article for its cited works only. Used to backfill
+ * articles reviewed before reference extraction existed, from the source text
+ * already stored on the row — no re-upload needed.
+ */
+export function referenceExtractionMessages(input: {
+  notebook: NotebookLike;
+  sourceText: string;
+  articleAnchor: string;
+}): ChatMessage[] {
+  const windowed = windowSource(input.sourceText);
+
+  return [
+    {
+      role: "system",
+      content: `You extract the works a journal article leans on — its theory, the concepts it defines or borrows, the studies it reports and argues with, and the sources of its methods — so that a PhD candidate can cite them as secondary sources.
+
+The article being read: ${input.articleAnchor}
+
+Return STRICT JSON only — no prose before or after, no markdown fences. Shape:
+{
+  ${CITED_REFERENCE_SHAPE}
+}
+
+${CITED_REFERENCE_RULES}
+
+${ACADEMIC_RULES}`,
+    },
+    {
+      role: "user",
+      content: `Notebook study design:
+${notebookContext(input.notebook)}
+
+Article text:
+"""
+${windowed.text}
+"""
+${windowed.elided ? "\nNote: the middle of the document was omitted for length; its beginning and its reference list are intact above." : ""}
 
 Return the JSON object now.`,
     },
@@ -170,17 +260,35 @@ export function manuscriptSectionMessages(input: {
   section: GuidelineSection;
   existingContent: string;
   evidence: EvidenceReview[];
+  library?: LibraryEntry[];
   instruction?: string | null;
   neighbouringSections?: { heading: string; content: string }[];
 }): ChatMessage[] {
   const { section } = input;
   const budget =
     section.wordMax > 0 ? `${section.wordMin}-${section.wordMax} words` : "as long as the content requires";
+  const library = input.library ?? [];
+  const isReferences = section.key === "references";
 
   const neighbours = (input.neighbouringSections ?? [])
     .filter((neighbour) => neighbour.content.trim().length > 0)
     .map((neighbour) => `### ${neighbour.heading}\n${neighbour.content.slice(0, 3500)}`)
     .join("\n\n");
+
+  const literature = isReferences
+    ? `Bibliography material — every source this manuscript may list:
+${renderBibliography({ evidence: input.evidence, library })}`
+    : `Evidence matrix — the only literature you may cite directly:
+${renderEvidence(input.evidence)}${
+        library.length
+          ? `\n\nSecondary sources — works named inside those articles. You have NOT read the originals, so cite one only in the "as cited in" form, naming the matrix article it came from:
+${renderLibrary(library)}`
+          : ""
+      }`;
+
+  const referencesRule = isReferences
+    ? `\nThis is the reference list. Write it as a numbered or alphabetical list, PLAIN TEXT, one entry per line, in one consistent style (APA 7 unless the target journal implies otherwise). Two parts:\n  1. "References" — the primary sources only. Every work in the evidence matrix that the manuscript cites anywhere gets a full entry here, built from the citation already recorded for it. List nothing that is not in the bibliography material.\n  2. "Named within the reviewed articles" — the secondary sources, each with the article it was found in, so the candidate can chase the original. Keep these out of the numbered reference list itself.`
+    : "";
 
   return [
     {
@@ -195,7 +303,7 @@ ${section.checklist.map((item, index) => `  ${index + 1}. ${item}`).join("\n")}
 
 Section-specific instruction from the template:
 ${section.guidance}
-${section.tables?.length ? `\nTables expected in this section: ${section.tables.join("; ")}. Write them as "INSERT TABLE n HERE ABOUT" callouts exactly where the template asks, and describe in one sentence what the table contains.` : ""}
+${section.tables?.length ? `\nTables expected in this section: ${section.tables.join("; ")}. Write them as "INSERT TABLE n HERE ABOUT" callouts exactly where the template asks, and describe in one sentence what the table contains.` : ""}${referencesRule}
 
 Output the section body only. No section heading, no preamble such as "Here is the section", no explanation of what you did. Write plain prose, with no markdown at all: no # headings, no **bold** or *italic* markers, no backticks. Give a structured abstract's paragraphs an unadorned label and colon, like "Purpose: ...". Where the template asks for sub-sections, put the sub-section title on its own line as plain text.
 
@@ -210,8 +318,7 @@ Manuscript: ${input.manuscript.title}${input.manuscript.targetJournal ? ` (targe
 ${input.manuscript.abstract ? `\nCurrent abstract:\n${input.manuscript.abstract}` : ""}
 ${input.manuscript.keywords?.length ? `\nKeywords: ${input.manuscript.keywords.join(", ")}` : ""}
 
-Evidence matrix — the only literature you may cite:
-${renderEvidence(input.evidence)}
+${literature}
 ${neighbours ? `\nAlready-written neighbouring sections, for continuity of voice and to avoid repetition:\n${neighbours}` : ""}
 ${input.existingContent.trim() ? `\nCurrent draft of this section (improve and extend it rather than discarding anything correct):\n"""\n${input.existingContent.slice(0, 12000)}\n"""` : "\nThis section is still empty."}
 ${input.instruction ? `\nAuthor's instruction for this pass: ${input.instruction}` : ""}

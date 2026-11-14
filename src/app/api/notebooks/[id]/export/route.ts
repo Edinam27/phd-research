@@ -5,6 +5,8 @@ import { reviews } from "@/db/schema";
 import { fail, toErrorResponse } from "@/lib/api";
 import { requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
+import { loadNotebookLibrary } from "@/lib/manuscripts";
+import { REFERENCE_ROLE_LABELS } from "@/lib/reference-labels";
 import { TAXONOMY_COLUMNS } from "@/lib/taxonomy";
 
 export const runtime = "nodejs";
@@ -128,6 +130,58 @@ export async function GET(request: Request, { params }: Params) {
 
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
 
+    // Every work the reviewed articles lean on, deduped and ranked. This is the
+    // sheet behind "which literatures are core to my field".
+    const { entries } = await loadNotebookLibrary(id);
+    const references = workbook.addWorksheet("References", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    const referenceHeaders = [
+      "Cited work",
+      "Year",
+      "Title",
+      "Source",
+      "Roles",
+      "Cited by",
+      "Your articles that cite it",
+      "Note",
+    ];
+    references.addRow(referenceHeaders);
+    for (const entry of entries) {
+      references.addRow([
+        entry.authors,
+        entry.year ?? "",
+        entry.title,
+        entry.source ?? "",
+        entry.roles.map((role) => REFERENCE_ROLE_LABELS[role]).join("; "),
+        entry.citedBy.length,
+        entry.citedBy
+          .map(
+            (source) =>
+              `${source.author}${source.year ? ` (${source.year})` : ""} — ${source.title}`,
+          )
+          .join("\n"),
+        entry.note ?? "",
+      ]);
+    }
+
+    const referenceHeaderRow = references.getRow(1);
+    referenceHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    referenceHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    referenceHeaderRow.alignment = { vertical: "middle", wrapText: true };
+    referenceHeaderRow.height = 30;
+
+    referenceHeaders.forEach((_header, index) => {
+      const column = references.getColumn(index + 1);
+      column.width = index === 6 ? 56 : index === 2 ? 46 : 20;
+      column.alignment = { vertical: "top", wrapText: true };
+    });
+
+    references.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: referenceHeaders.length },
+    };
+
     const notes = workbook.addWorksheet("Reading notes");
     notes.addRow(["How this file was produced"]);
     notes.getRow(1).font = { bold: true };
@@ -138,6 +192,9 @@ export async function GET(request: Request, { params }: Params) {
       "Columns A-K follow the TAXONOMY.xlsx layout: Author, Year, Title, Journal, Problems/Gaps, Objectives, Theory, Empirical findings of past research, Methodology, Key Findings, Limitations.",
     ]);
     notes.addRow(["Columns L onwards carry reviewer enrichment and the critical appraisal scorecard."]);
+    notes.addRow([
+      `The References sheet lists the ${entries.length} distinct works cited inside those articles, ranked by how many of your articles cite each one. Cite a secondary source as "Smith (2019, as cited in Jones, 2021)".`,
+    ]);
     notes.addRow(["AI-drafted values are marked in the 'AI model' column and must be verified before use."]);
     notes.getColumn(1).width = 120;
     notes.getColumn(1).alignment = { wrapText: true };

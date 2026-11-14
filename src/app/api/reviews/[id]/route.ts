@@ -5,6 +5,7 @@ import { notebooks, reviews } from "@/db/schema";
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { AccessError, canEdit, requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
+import { mapCitedReferences } from "@/lib/ai/map-review";
 import { averageAppraisal } from "@/lib/taxonomy";
 import { reviewUpdateSchema } from "@/lib/validation";
 
@@ -68,6 +69,12 @@ export async function PATCH(request: Request, { params }: Params) {
       .update(reviews)
       .set({
         ...body,
+        // Normalised rather than spread raw: the schema's optional fields are
+        // looser than the jsonb column's type.
+        citedReferences:
+          body.citedReferences === undefined
+            ? review.citedReferences
+            : mapCitedReferences(body.citedReferences, 80),
         overallScore: overall,
         updatedAt: new Date(),
         sourceText:

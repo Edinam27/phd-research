@@ -1,4 +1,4 @@
-import { and, asc, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -12,6 +12,12 @@ import {
 } from "@/db/schema";
 import { AccessError, requireNotebookAccess, type NotebookRole } from "@/lib/access";
 import { getSections, type GuidelineSection, type ManuscriptKind, type StudyType } from "@/lib/guideline";
+import {
+  buildReferenceLibrary,
+  selectLibrary,
+  type LibraryEntry,
+  type LibraryRow,
+} from "@/lib/references";
 import { countWords } from "@/lib/utils";
 
 /**
@@ -61,8 +67,64 @@ export type SectionContext = ManuscriptContext & {
   section: ManuscriptSection;
   siblings: ManuscriptSection[];
   evidence: EvidenceReview[];
+  library: LibraryEntry[];
   template: GuidelineSection;
 };
+
+/**
+ * Every review in a notebook, narrowed to the four columns the reference
+ * library reads. The stored article text and the matrix prose stay behind.
+ */
+export async function loadLibraryRows(notebookId: string): Promise<LibraryRow[]> {
+  return db
+    .select({
+      id: reviews.id,
+      author: reviews.author,
+      year: reviews.year,
+      title: reviews.title,
+      verdict: reviews.verdict,
+      citedReferences: reviews.citedReferences,
+      // A boolean, not the text: the extraction endpoint needs to know whether
+      // there is an article to re-read, without dragging 127 kB per row along.
+      hasSource: sql<boolean>`(${reviews.sourceText} is not null and length(${reviews.sourceText}) > 400)`.as(
+        "has_source",
+      ),
+    })
+    .from(reviews)
+    .where(eq(reviews.notebookId, notebookId));
+}
+
+/** The whole notebook library, ranked, before any manuscript-level selection. */
+export async function loadNotebookLibrary(
+  notebookId: string,
+): Promise<{ entries: LibraryEntry[]; rows: LibraryRow[] }> {
+  const rows = await loadLibraryRows(notebookId);
+  return { entries: buildReferenceLibrary(rows), rows };
+}
+
+/** The entries this manuscript may cite: its own selection, or the whole library. */
+export async function loadManuscriptLibrary(manuscript: Manuscript): Promise<LibraryEntry[]> {
+  const { entries } = await loadNotebookLibrary(manuscript.notebookId);
+  return selectLibrary(entries, manuscript.referenceKeys);
+}
+
+/**
+ * The same library, reached from a manuscript id alone. Lets a route start the
+ * library query in the same batch as the access check, before that check has
+ * told it which notebook to read.
+ */
+export async function loadNotebookLibraryByManuscript(
+  manuscriptId: string,
+): Promise<{ entries: LibraryEntry[]; rows: LibraryRow[] }> {
+  const rows = await db
+    .select({ notebookId: manuscripts.notebookId })
+    .from(manuscripts)
+    .where(eq(manuscripts.id, manuscriptId))
+    .limit(1);
+  const notebookId = rows[0]?.notebookId;
+  if (!notebookId) return { entries: [], rows: [] };
+  return loadNotebookLibrary(notebookId);
+}
 
 /** Shared loader for every route that acts on a single manuscript section. */
 export async function loadSectionContext(
@@ -80,9 +142,10 @@ export async function loadSectionContext(
   const section = sectionRows[0];
   if (!section) throw new AccessError("Section not found.", 404);
 
-  const [siblings, evidence] = await Promise.all([
+  const [siblings, evidence, libraryRows] = await Promise.all([
     db.select().from(manuscriptSections).where(eq(manuscriptSections.manuscriptId, manuscriptId)),
     db.select(EVIDENCE_COLUMNS).from(reviews).where(eq(reviews.notebookId, context.manuscript.notebookId)),
+    loadLibraryRows(context.manuscript.notebookId),
   ]);
 
   const template = templateFor(context.manuscript, section.sectionKey);
@@ -92,6 +155,7 @@ export async function loadSectionContext(
     section,
     siblings: siblings.sort((a, b) => a.position - b.position),
     evidence: selectEvidence(evidence, context.manuscript.evidenceIds),
+    library: selectLibrary(buildReferenceLibrary(libraryRows), context.manuscript.referenceKeys),
     template,
   };
 }
@@ -109,6 +173,7 @@ export async function createManuscriptWithSections(input: {
   studyType: StudyType;
   researchType?: string;
   evidenceIds?: string[];
+  referenceKeys?: string[];
   targetJournal?: string | null;
   status?: string;
   abstract?: string | null;
@@ -124,6 +189,7 @@ export async function createManuscriptWithSections(input: {
       studyType: input.studyType,
       researchType: input.researchType ?? "empirical",
       evidenceIds: input.evidenceIds ?? [],
+      referenceKeys: input.referenceKeys ?? [],
       targetJournal: input.targetJournal ?? null,
       status: input.status ?? "draft",
       abstract: input.abstract ?? null,

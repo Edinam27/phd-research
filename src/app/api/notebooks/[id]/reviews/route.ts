@@ -5,6 +5,7 @@ import { notebooks, reviews } from "@/db/schema";
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { requireNotebookAccess, canEdit } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
+import { mapCitedReferences } from "@/lib/ai/map-review";
 import { averageAppraisal } from "@/lib/taxonomy";
 import { reviewSchema } from "@/lib/validation";
 
@@ -132,6 +133,7 @@ export async function POST(request: Request, { params }: Params) {
         strengths: body.strengths ?? null,
         weaknesses: body.weaknesses ?? null,
         reviewerNotes: body.reviewerNotes ?? null,
+        citedReferences: mapCitedReferences(body.citedReferences, 80),
         status: body.status,
         sourceKind: body.sourceKind,
         sourceFilename: body.sourceFilename ?? null,

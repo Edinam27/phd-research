@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { REFERENCE_ROLES } from "@/db/schema";
+
 const studyType = z.enum(["quantitative", "qualitative", "mixed"]);
 const researchType = z.enum([
   "empirical",
@@ -73,6 +75,19 @@ export const reviewSchema = z.object({
   hypotheses: z.array(z.string().trim().min(1).max(400)).max(40).default([]),
   gapTags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
   useInManuscript: z.string().trim().max(2000).optional().nullable(),
+  citedReferences: z
+    .array(
+      z.object({
+        authors: z.string().trim().max(400).default(""),
+        year: z.coerce.number().int().min(1500).max(2100).optional().nullable(),
+        title: z.string().trim().max(600).default(""),
+        source: z.string().trim().max(400).optional().nullable(),
+        role: z.enum(REFERENCE_ROLES).default("prior-evidence"),
+        note: z.string().trim().max(600).optional().nullable(),
+      }),
+    )
+    .max(80)
+    .default([]),
 
   scoreRigour: score,
   scoreRelevance: score,
@@ -101,6 +116,8 @@ export const manuscriptSchema = z.object({
   studyType: studyType.default("quantitative"),
   /** Empty means every non-excluded review in the notebook. */
   evidenceIds: z.array(z.string().uuid()).max(500).default([]),
+  /** Empty means the notebook's whole reference library. */
+  referenceKeys: z.array(z.string().max(300)).max(2000).default([]),
   targetJournal: z.string().trim().max(200).optional().nullable(),
   status: z.enum(["draft", "internal-review", "supervisor-review", "ready", "submitted", "published"]).default("draft"),
   abstract: z.string().trim().max(6000).optional().nullable(),

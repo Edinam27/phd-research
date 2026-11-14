@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Prose } from "@/components/prose";
 import { EvidencePicker, type EvidenceOption } from "@/components/evidence-picker";
+import { ReferencePicker } from "@/components/reference-picker";
 import {
   Alert,
   Badge,
@@ -49,6 +50,7 @@ import type {
   SectionStatus,
   SectionTemplate,
   StudyType,
+  ReferenceLibraryEntry,
 } from "@/lib/types";
 import { cn, countWords, formatUsd } from "@/lib/utils";
 
@@ -62,6 +64,10 @@ type ManuscriptDetail = {
   sections: ManuscriptSection[];
   progress: SectionProgress;
   evidence: EvidenceOption[];
+  /** Every work the reviewed articles lean on, ranked, with its "cited by" roll-up. */
+  library: ReferenceLibraryEntry[];
+  /** The library keys this manuscript cites; empty means the whole library. */
+  selectedReferenceKeys: string[];
   uncited: string[];
   template: Record<string, SectionTemplate>;
 };
@@ -630,6 +636,7 @@ export function ManuscriptWriter() {
         <SettingsForm
           manuscript={manuscript}
           evidence={data.evidence}
+          library={data.library}
           onSubmit={saveSettings}
           busy={settingsBusy}
           error={settingsError}
@@ -760,6 +767,7 @@ type ManuscriptSettingsPayload = {
   researchType: ResearchType;
   studyType: StudyType;
   evidenceIds: string[];
+  referenceKeys: string[];
   targetJournal: string | null;
   status: string;
   abstract: string | null;
@@ -769,12 +777,14 @@ type ManuscriptSettingsPayload = {
 function SettingsForm({
   manuscript,
   evidence,
+  library,
   onSubmit,
   busy,
   error,
 }: {
   manuscript: Manuscript;
   evidence: EvidenceOption[];
+  library: ReferenceLibraryEntry[];
   onSubmit: (payload: ManuscriptSettingsPayload) => void | Promise<void>;
   busy: boolean;
   error: string | null;
@@ -790,6 +800,7 @@ function SettingsForm({
     keywords: manuscript.keywords.join(", "),
   });
   const [evidenceIds, setEvidenceIds] = useState<string[]>(manuscript.evidenceIds);
+  const [referenceKeys, setReferenceKeys] = useState<string[]>(manuscript.referenceKeys);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const submit = (event: React.FormEvent) => {
@@ -805,6 +816,7 @@ function SettingsForm({
       researchType: form.researchType,
       studyType: form.studyType,
       evidenceIds,
+      referenceKeys,
       targetJournal: form.targetJournal.trim() || null,
       status: form.status,
       abstract: form.abstract.trim() || null,
@@ -905,6 +917,13 @@ function SettingsForm({
         hint="Only the ticked works feed the AI drafts and count as known citations."
       >
         <EvidencePicker options={evidence} selected={evidenceIds} onChange={setEvidenceIds} />
+      </Field>
+
+      <Field
+        label="Secondary sources to draw on"
+        hint="Works the reviewed articles cite, collected from inside them. Tick the ones this manuscript may use; each is quoted as “Smith (2019, as cited in Jones, 2021)”."
+      >
+        <ReferencePicker options={library} selected={referenceKeys} onChange={setReferenceKeys} />
       </Field>
 
       <Field label="Abstract">

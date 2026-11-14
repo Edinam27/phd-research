@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  BookMarked,
   Compass,
   Download,
   FileSpreadsheet,
@@ -24,6 +25,7 @@ const TABS = [
   { href: "", label: "Overview", icon: Gauge },
   { href: "/review", label: "Article reviewer", icon: Sparkles },
   { href: "/reviews", label: "Evidence matrix", icon: Table2 },
+  { href: "/references", label: "References", icon: BookMarked },
   { href: "/manuscripts", label: "Manuscripts", icon: FileText },
   { href: "/research", label: "Research & synthesis", icon: Compass },
   { href: "/team", label: "Team", icon: Users },

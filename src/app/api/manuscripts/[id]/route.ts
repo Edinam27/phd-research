@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getSections } from "@/lib/guideline";
 import {
   loadManuscriptContext,
+  loadNotebookLibraryByManuscript,
   loadSections,
   sectionProgress,
   selectEvidence,
@@ -28,9 +29,10 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params;
     // The sections only need the URL's id, so they load alongside the access
     // check instead of queueing behind it — one less trip to Neon per page view.
-    const [{ manuscript, notebook, role }, sections] = await Promise.all([
+    const [{ manuscript, notebook, role }, sections, library] = await Promise.all([
       loadManuscriptContext(id, user.id, user.isAdmin),
       loadSections(id),
+      loadNotebookLibraryByManuscript(id),
     ]);
 
     // Just enough of each row for the evidence picker and the citation anchors.
@@ -57,6 +59,9 @@ export async function GET(_request: Request, { params }: Params) {
       sections,
       progress: sectionProgress(sections),
       evidence,
+      /** The notebook's reference library, ranked, with its "cited by" roll-up. */
+      library: library.entries,
+      selectedReferenceKeys: manuscript.referenceKeys,
       uncited: uncitedAnchors(
         sections.map((section) => section.content).join("\n\n"),
         anchors,
@@ -99,6 +104,7 @@ export async function PATCH(request: Request, { params }: Params) {
         researchType: body.researchType ?? manuscript.researchType,
         studyType,
         evidenceIds: body.evidenceIds ?? manuscript.evidenceIds,
+        referenceKeys: body.referenceKeys ?? manuscript.referenceKeys,
         targetJournal: body.targetJournal === undefined ? manuscript.targetJournal : body.targetJournal,
         status: body.status ?? manuscript.status,
         abstract: body.abstract === undefined ? manuscript.abstract : body.abstract,

@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { id, sectionId } = await params;
     const context = await loadSectionContext(id, sectionId, user.id);
-    const { section, manuscript, notebook, role, siblings, evidence, template } = context;
+    const { section, manuscript, notebook, role, siblings, evidence, library, template } = context;
 
     if (!canEdit(role)) return fail("You have read-only access to this notebook.", 403);
 
@@ -64,6 +64,7 @@ export async function POST(request: Request, { params }: Params) {
           section: template,
           existingContent: existingForModel,
           evidence,
+          library,
           instruction: instruction || null,
           neighbouringSections: neighboursOf(siblings, section.sectionKey),
         }),

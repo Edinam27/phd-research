@@ -17,6 +17,38 @@ export type Verdict = "include" | "borderline" | "exclude";
 export type ReviewStatus = "draft" | "ai-drafted" | "reviewed" | "verified";
 export type SectionStatus = "empty" | "drafting" | "complete";
 
+export type ReferenceRole = "theory" | "concept" | "prior-evidence" | "method" | "context";
+
+/** A work one reviewed article leans on, extracted from inside that article. */
+export type CitedReference = {
+  authors: string;
+  year: number | null;
+  title: string;
+  source: string | null;
+  role: ReferenceRole;
+  note: string | null;
+};
+
+/** One reviewed article that cites a library work. */
+export type ReferenceSource = {
+  reviewId: string;
+  author: string;
+  year: number | null;
+  title: string;
+};
+
+/** A work deduped across the whole matrix, with the articles that cite it. */
+export type ReferenceLibraryEntry = {
+  key: string;
+  authors: string;
+  year: number | null;
+  title: string;
+  source: string | null;
+  roles: ReferenceRole[];
+  note: string | null;
+  citedBy: ReferenceSource[];
+};
+
 export type Notebook = {
   id: string;
   ownerId: string;
@@ -96,6 +128,8 @@ export type Review = {
   strengths: string | null;
   weaknesses: string | null;
   reviewerNotes: string | null;
+  /** Works this article leans on, read out of it during the review. */
+  citedReferences: CitedReference[];
   status: ReviewStatus;
   sourceKind: string;
   sourceFilename: string | null;
@@ -140,6 +174,8 @@ export type Manuscript = {
   studyType: StudyType;
   /** Evidence-matrix rows this manuscript may cite; empty means the whole matrix. */
   evidenceIds: string[];
+  /** Reference-library keys this manuscript may cite as secondary sources; empty means all. */
+  referenceKeys: string[];
   status: string;
   abstract: string | null;
   keywords: string[];

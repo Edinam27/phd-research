@@ -219,13 +219,19 @@ export function ReviewStudio() {
     setSaveError(null);
     setSavedId(null);
 
+    // The reviewer reads the article's cited works in the same pass, so they
+    // travel with whichever save this is. Without them the library and the
+    // "as cited in" citations would have nothing to draw on.
+    const citedReferences = analysis?.draft.citedReferences;
+    const withRefs = citedReferences?.length ? { ...payload, citedReferences } : payload;
+
     try {
       let saved: Review;
       if (editingId) {
-        const result = await patchJson<{ review: Review }>(`/api/reviews/${editingId}`, payload);
+        const result = await patchJson<{ review: Review }>(`/api/reviews/${editingId}`, withRefs);
         saved = result.review;
       } else {
-        const body: Record<string, unknown> = { ...payload };
+        const body: Record<string, unknown> = { ...withRefs };
         if (analysis) {
           body.sourceKind = resolveSourceKind(analysis.source, mode, file?.name ?? null);
           body.sourceFilename = analysis.source?.filename ?? file?.name ?? null;

@@ -27,15 +27,15 @@ export type TokenPack = {
   id: string;
   name: string;
   tokens: number;
-  /** Whole cedis the pack sells for. */
-  priceGhs: number;
+  /** Whole dollars the pack sells for. */
+  priceUsd: number;
   /** One line on who the pack fits. */
   blurb: string;
 };
 
 /**
- * Pack catalogue. Prices are whole cedis; Paystack charges the amount in
- * pesewas. Tune freely — the ledger does not care where the numbers come
+ * Pack catalogue. Prices are whole dollars; Paystack charges the amount in
+ * cents. Tune freely — the ledger does not care where the numbers come
  * from, and past purchases keep the price they were sold at.
  */
 export const TOKEN_PACKS: TokenPack[] = [
@@ -43,21 +43,21 @@ export const TOKEN_PACKS: TokenPack[] = [
     id: "starter",
     name: "Starter pack",
     tokens: 250_000,
-    priceGhs: 30,
+    priceUsd: 10,
     blurb: "Roughly fifteen full article reviews or a term of drafts.",
   },
   {
     id: "research",
     name: "Research pack",
     tokens: 1_000_000,
-    priceGhs: 90,
+    priceUsd: 25,
     blurb: "A working thesis season: reviews, synthesis and full drafts.",
   },
   {
     id: "department",
     name: "Department pack",
     tokens: 5_000_000,
-    priceGhs: 350,
+    priceUsd: 50,
     blurb: "A lab or faculty group running several notebooks in parallel.",
   },
 ];

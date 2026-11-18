@@ -48,9 +48,9 @@ export function publicKey(): string {
   return key;
 }
 
-/** GHS by default; override with PAYSTACK_CURRENCY if the account settles elsewhere. */
+/** USD by default; override with PAYSTACK_CURRENCY if the account settles elsewhere. */
 export function purchaseCurrency(): string {
-  return (process.env.PAYSTACK_CURRENCY ?? "GHS").toUpperCase();
+  return (process.env.PAYSTACK_CURRENCY ?? "USD").toUpperCase();
 }
 
 export function newPurchaseReference(): string {

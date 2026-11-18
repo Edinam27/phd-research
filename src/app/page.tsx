@@ -62,7 +62,7 @@ const FACTS = [
   { value: "11", label: "Taxonomy columns per review row" },
   { value: "3", label: "Model tiers behind every call" },
   { value: "100k", label: "Free tokens on signup" },
-  { value: "GH₵30", label: "Smallest prepaid pack" },
+  { value: "$10", label: "Smallest prepaid pack" },
 ];
 
 const MATRIX_PREVIEW = {
@@ -276,7 +276,7 @@ export default async function HomePage() {
                     </ul>
                     <div className="mt-auto pt-8">
                       <p className="text-[28px] font-black text-[#0F172A]">
-                        GH₵{pack.priceGhs}
+                        ${pack.priceUsd}
                         <span className="text-[14px] font-medium text-[#94A3B8]"> once</span>
                       </p>
                       <Link

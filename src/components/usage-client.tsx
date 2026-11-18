@@ -24,7 +24,7 @@ type TokenPack = {
   id: string;
   name: string;
   tokens: number;
-  priceGhs: number;
+  priceUsd: number;
   blurb: string;
 };
 
@@ -259,7 +259,7 @@ export function UsageClient() {
                     <p className="mt-1 text-[11.5px] text-muted">tokens</p>
                     <p className="mt-3 text-[12.5px] leading-relaxed text-ink-2">{pack.blurb}</p>
                     <div className="mt-auto flex items-center justify-between pt-4">
-                      <span className="font-mono text-[15px] tabular-nums text-ink">GH₵{pack.priceGhs}</span>
+                      <span className="font-mono text-[15px] tabular-nums text-ink">${pack.priceUsd}</span>
                       <Button
                         size="sm"
                         variant={tokens.balance <= 0 ? "primary" : "secondary"}

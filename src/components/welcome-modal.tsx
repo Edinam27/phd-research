@@ -11,7 +11,7 @@ type TokenPack = {
   id: string;
   name: string;
   tokens: number;
-  priceGhs: number;
+  priceUsd: number;
   blurb: string;
 };
 
@@ -92,7 +92,7 @@ export function WelcomeModal({ open, onClose }: { open: boolean; onClose: () => 
             >
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ink">
-                  {pack.name} · GH₵{pack.priceGhs}
+                  {pack.name} · ${pack.priceUsd}
                 </p>
                 <p className="mt-0.5 truncate text-[12px] text-muted">{pack.blurb}</p>
               </div>

@@ -40,14 +40,14 @@ export async function POST(request: Request) {
       tokens: pack.tokens,
       status: "pending",
       reference,
-      amountMinor: pack.priceGhs * 100,
+      amountMinor: pack.priceUsd * 100,
       currency,
       note: `${pack.name} — pending checkout`,
     });
 
     const authorizationUrl = await initializePurchase({
       email: user.email,
-      amountMinor: pack.priceGhs * 100,
+      amountMinor: pack.priceUsd * 100,
       reference,
       callbackUrl,
       metadata: { packId: pack.id, userId: user.id, tokens: pack.tokens },

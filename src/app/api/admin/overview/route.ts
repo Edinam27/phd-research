@@ -195,10 +195,11 @@ export async function GET() {
 
     const total = (rows: { total: unknown }[]): number => Number(rows[0]?.total ?? 0);
 
-    // Profitability, in the currency packs are sold in: what collectors paid
-    // minus what the models behind their calls actually cost, converted at
-    // the configured rate. TOKENS_PER pack keeps margin visible per sale.
-    const ghsPerUsd = Number(process.env.GHS_PER_USD ?? 15.5);
+    // Profitability, in the currency packs are sold in: what buyers paid
+    // minus what the models behind their calls actually cost. Model spend is
+    // recorded in USD, so USD sales convert 1:1; any other sale currency
+    // goes through the configured rate.
+    const saleCurrency = (process.env.PAYSTACK_CURRENCY ?? "USD").toUpperCase();
     const packSales = await db
       .select({
         packs: count(),
@@ -219,7 +220,10 @@ export async function GET() {
     );
     const modelCostUsd = Number(aiTotals[0]?.cost ?? 0);
     const revenueMinor = Number(packSales[0]?.revenueMinor ?? 0);
-    const costMinor = Math.round(modelCostUsd * ghsPerUsd * 100);
+    const costMinor =
+      saleCurrency === "USD"
+        ? Math.round(modelCostUsd * 100)
+        : Math.round(modelCostUsd * Number(process.env.GHS_PER_USD ?? 15.5) * 100);
 
     // The flag lives in the database; the environment allowlist is the bootstrap,
     // so an administrator is whoever either of them says is one.

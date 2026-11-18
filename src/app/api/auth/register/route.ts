@@ -49,8 +49,7 @@ export async function POST(request: Request) {
       note: "Welcome grant — free tokens to run your first reviews",
     });
 
-    return ok({ user }, 201);
-  } catch (error) {
+    return ok({ user }, 201);  } catch (error) {
     return toErrorResponse(error);
   }
 }

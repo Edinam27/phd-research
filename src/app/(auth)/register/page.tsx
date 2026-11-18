@@ -47,7 +47,7 @@ export default function RegisterPage() {
         password: form.password,
         academicRole: form.academicRole || undefined,
       });
-      router.replace("/dashboard?new=1");
+      router.replace("/dashboard?welcome=1");
       router.refresh();
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : "Could not create your account. Try again.");

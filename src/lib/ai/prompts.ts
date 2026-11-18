@@ -502,3 +502,84 @@ ${renderEvidence(input.reviews).slice(0, 30000)}`,
 export function studyTypeLabel(studyType: StudyType): string {
   return studyType.charAt(0).toUpperCase() + studyType.slice(1);
 }
+
+/* ------------------------------------------------------------------ */
+/* Notebook-from-draft — inferring a study design from a manuscript    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One call reads an existing draft and infers the notebook design around it:
+ * the fields the rest of the studio injects into every review and answer.
+ * Returned before any rows exist, so the notebook can be created first.
+ */
+export function draftDesignMessages(input: {
+  draftText: string;
+  filename?: string | null;
+}): ChatMessage[] {
+  const windowed = windowSource(input.draftText);
+
+  return [
+    {
+      role: "system",
+      content: `You are a doctoral supervisor reading a paper a candidate has already been working on. Infer the study design from the draft itself so a research notebook can be set up around it.
+
+Return STRICT JSON only — no prose before or after, no markdown fences. Shape:
+{
+  "title": "Short notebook title for this study, not the paper's own title",
+  "description": "Two sentences: what the study examines and why it matters",
+  "researchArea": "Broad field, e.g. 'Tourism marketing'",
+  "researchType": "empirical | conceptual | systematic-review | narrative-review | case-study | editorial",
+  "studyType": "quantitative | qualitative | mixed",
+  "targetJournal": "Journal the draft seems aimed at, if evident, else null",
+  "keyVariables": ["core constructs, 2-6 strings"],
+  "researchProblem": "The problem the draft addresses, stated as a defensible gap",
+  "researchObjectives": ["objective one", "objective two"],
+  "theory": "Theory or model the draft leans on, with propounder if stated",
+  "context": "Empirical setting: country, sector, institutions",
+  "manuscriptTitle": "The draft's own full title, verbatim"
+}
+Every string in English. Where the draft does not say, infer the most reasonable value from the text rather than writing null except for targetJournal, which may be null.`,
+    },
+    {
+      role: "user",
+      content: `Filename: ${input.filename ?? "unknown"}
+
+Draft text:
+${windowed.text}`,
+    },
+  ];
+}
+
+/**
+ * Second call maps the draft's own prose onto the publication guideline's
+ * sections, verbatim, so the author continues from where they stopped
+ * instead of redrafting. Sections absent from the draft come back empty.
+ */
+export function draftSectionMapMessages(input: {
+  draftText: string;
+  sections: { key: string; heading: string; guidance: string }[];
+}): ChatMessage[] {
+  const windowed = windowSource(input.draftText);
+  const sectionList = input.sections
+    .map((section) => `- ${section.key}: ${section.heading} — ${section.guidance}`)
+    .join("\n");
+
+  return [
+    {
+      role: "system",
+      content: `You are mapping an existing paper draft onto a journal's section template. For every section key listed, copy the draft's own prose that belongs there, VERBATIM — do not rewrite, polish or summarize the author's words. Where the draft has no material for a section, return an empty string.
+
+Return STRICT JSON only — no prose before or after, no markdown fences. Shape:
+{"sections":[{"key":"the section key","content":"the copied prose or an empty string"}]}
+Every listed key must appear exactly once. Long content is fine; completeness matters more than brevity.
+
+Section template:
+${sectionList}`,
+    },
+    {
+      role: "user",
+      content: `Draft text:
+${windowed.text}`,
+    },
+  ];
+}

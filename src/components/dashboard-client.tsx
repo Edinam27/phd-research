@@ -13,13 +13,16 @@ import {
 } from "lucide-react";
 
 import { Modal } from "@/components/modal";
+import { DraftNotebookForm } from "@/components/draft-notebook-form";
 import { NotebookForm, type NotebookPayload } from "@/components/notebook-form";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { WelcomeModal } from "@/components/welcome-modal";
 import { Alert, Badge, Button, Card, EmptyState, Spinner, Stat } from "@/components/ui";
 import { getJson, postJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookSummary } from "@/lib/types";
 import { formatDate, formatTokens } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type UsageResponse = {
   window: { days: number };
@@ -39,9 +42,11 @@ const STAGE_TONE: Record<string, "neutral" | "accent" | "good" | "warn"> = {
 export function DashboardClient({
   user,
   openNew,
+  openWelcome = false,
 }: {
   user: { name: string; academicRole: string | null };
   openNew: boolean;
+  openWelcome?: boolean;
 }) {
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<NotebookSummary[] | null>(null);
@@ -49,6 +54,8 @@ export function DashboardClient({
   const [balance, setBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(openNew);
+  const [createMode, setCreateMode] = useState<"blank" | "draft">("blank");
+  const [welcome, setWelcome] = useState(openWelcome);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -94,6 +101,15 @@ export function DashboardClient({
       setFormError(thrown instanceof Error ? thrown.message : "Could not create the notebook.");
       setBusy(false);
     }
+  };
+
+  const imported = (result: {
+    notebook: { id: string; title: string };
+    manuscript: { id: string; title: string };
+  }) => {
+    setCreating(false);
+    router.push(`/notebooks/${result.notebook.id}/manuscripts/${result.manuscript.id}`);
+    router.refresh();
   };
 
   return (
@@ -209,12 +225,51 @@ export function DashboardClient({
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title="New notebook"
-        description="One notebook per study. The design you enter here grounds every review, draft and answer inside it."
+        title={createMode === "draft" ? "New notebook from a draft" : "New notebook"}
+        description={
+          createMode === "draft"
+            ? "Upload a paper you are already writing — the notebook builds itself around it."
+            : "One notebook per study. The design you enter here grounds every review, draft and answer inside it."
+        }
         size="lg"
       >
-        <NotebookForm onSubmit={create} submitLabel="Create notebook" busy={busy} error={formError} />
+        <div className="mb-4 flex gap-1.5">
+          {(
+            [
+              { value: "blank", label: "Describe the study" },
+              { value: "draft", label: "Upload a draft" },
+            ] as const
+          ).map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              onClick={() => setCreateMode(mode.value)}
+              className={cn(
+                "rounded-sm border px-3 py-1.5 text-[13px] transition-colors",
+                createMode === mode.value
+                  ? "border-ink bg-ink text-white"
+                  : "border-line-2 bg-card text-ink-2 hover:border-ink/40",
+              )}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        {createMode === "draft" ? (
+          <DraftNotebookForm onImported={imported} />
+        ) : (
+          <NotebookForm onSubmit={create} submitLabel="Create notebook" busy={busy} error={formError} />
+        )}
       </Modal>
+
+      <WelcomeModal
+        open={welcome}
+        onClose={() => {
+          setWelcome(false);
+          router.replace("/dashboard");
+        }}
+      />
     </>
   );
 }

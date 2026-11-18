@@ -28,7 +28,8 @@ export type AiFeature =
   | "synthesis"
   | "chat"
   | "compliance"
-  | "reference-extraction";
+  | "reference-extraction"
+  | "draft-import";
 
 export type Usage = {
   promptTokens: number;

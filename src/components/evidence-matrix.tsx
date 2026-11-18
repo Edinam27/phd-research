@@ -25,7 +25,7 @@ import { ApiError, apiFetch, deleteJson, getJson, patchJson, postJson } from "@/
 import { averageAppraisal, scoreReviewCompleteness, TAXONOMY_COLUMNS, type TaxonomyColumn } from "@/lib/taxonomy";
 import type { NotebookDetail, Review, ReviewStatus, Verdict } from "@/lib/types";
 import { ArticleReadError, prepareArticleFile } from "@/lib/upload";
-import { cn, formatUsd } from "@/lib/utils";
+import { cn, formatTokens } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
 /* Data contracts                                                      */
@@ -35,7 +35,7 @@ type AnalyzeUsage = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-  costUsd: number;
+  tokens: number;
 };
 
 type AnalyzeResponse = {
@@ -54,7 +54,7 @@ type SourceMeta = {
   aiModel: string | null;
 };
 
-type ImportSummary = { model: string; chars: number; costUsd: number };
+type ImportSummary = { model: string; chars: number; tokens: number };
 
 /* ------------------------------------------------------------------ */
 /* Presentation constants                                              */
@@ -514,7 +514,7 @@ export function EvidenceMatrix() {
     setImportSummary({
       model: result.model,
       chars: result.source?.chars ?? 0,
-      costUsd: result.usage?.costUsd ?? 0,
+      tokens: result.usage?.tokens ?? 0,
     });
     setSaveError(null);
     setFormKey((key) => key + 1);
@@ -637,7 +637,7 @@ export function EvidenceMatrix() {
           <Stat label="Articles reviewed" value={reviews?.length ?? 0} sub="Rows in this matrix" />
           <Stat label="Included" value={includedCount} tone="good" sub="Verdict: include" />
           <Stat label="Flagged borderline" value={borderlineCount} tone="warn" sub="Cite with care" />
-          <Stat label="AI spend" value={formatUsd(detail?.stats.spendUsd ?? 0)} sub="Metered review calls" />
+          <Stat label="Tokens used" value={formatTokens(detail?.stats.spendTokens ?? 0)} sub="Metered review calls" />
         </div>
 
         <div className="mt-6">
@@ -834,7 +834,7 @@ export function EvidenceMatrix() {
           {importSummary ? (
             <Alert tone="good" title="Article read successfully">
               {importSummary.model} extracted {importSummary.chars.toLocaleString()} characters
-              {importSummary.costUsd > 0 ? ` at an estimated cost of ${formatUsd(importSummary.costUsd)}` : ""}. Review
+              {importSummary.tokens > 0 ? ` · ${formatTokens(importSummary.tokens)} tokens` : ""}. Review
               each column, then add the row to the matrix.
             </Alert>
           ) : null}

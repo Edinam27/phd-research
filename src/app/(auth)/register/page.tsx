@@ -22,8 +22,6 @@ export default function RegisterPage() {
     name: "",
     email: "",
     password: "",
-    institution: "",
-    discipline: "",
     academicRole: "PhD Candidate",
   });
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +45,6 @@ export default function RegisterPage() {
         name: form.name,
         email: form.email,
         password: form.password,
-        institution: form.institution || undefined,
-        discipline: form.discipline || undefined,
         academicRole: form.academicRole || undefined,
       });
       router.replace("/dashboard?new=1");
@@ -61,9 +57,9 @@ export default function RegisterPage() {
 
   return (
     <div>
-      <h1 className="font-serif text-2xl tracking-tight text-ink">Create your workspace</h1>
+      <h1 className="font-serif text-2xl tracking-tight text-ink">Start reviewing</h1>
       <p className="mt-1.5 text-[13.5px] text-muted">
-        One account holds every notebook. Invite a supervisor into any single notebook later.
+        Three fields, then your first notebook. Free tokens arrive with the account — no card needed.
       </p>
 
       <form onSubmit={submit} className="mt-7 space-y-4">
@@ -84,7 +80,7 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Password" required hint="At least 8 characters, and mixing letters with numbers helps.">
+        <Field label="Password" required hint="At least 8 characters, with a number in it.">
           <Input
             type="password"
             value={form.password}
@@ -94,15 +90,6 @@ export default function RegisterPage() {
             required
           />
         </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Institution">
-            <Input value={form.institution} onChange={set("institution")} placeholder="University of Ghana" />
-          </Field>
-          <Field label="Discipline">
-            <Input value={form.discipline} onChange={set("discipline")} placeholder="Tourism management" />
-          </Field>
-        </div>
 
         <Field label="Your role">
           <Select value={form.academicRole} onChange={set("academicRole")}>

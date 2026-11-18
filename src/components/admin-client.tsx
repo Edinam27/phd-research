@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 
+import { TokenEconomyView } from "@/components/admin-economy";
 import { PageBody, PageHeader } from "@/components/page-header";
 import {
   Alert,
@@ -16,7 +17,7 @@ import {
   Spinner,
   Stat,
 } from "@/components/ui";
-import { ApiError, getJson } from "@/lib/client";
+import { ApiError, getJson, postJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import { cn, formatUsd } from "@/lib/utils";
 
@@ -35,6 +36,11 @@ type AdminUser = {
   manuscripts: number;
   aiRuns: number;
   aiCostUsd: number;
+  tokensPurchased: number;
+  tokensGranted: number;
+  tokensSpent: number;
+  revenueMinor: number;
+  revenueCurrency: string | null;
 };
 
 type AdminNotebook = {
@@ -85,20 +91,38 @@ type AdminOverview = {
     aiCostUsd: number;
     aiFailures: number;
   };
+  tokenEconomy: {
+    currency: string | null;
+    packsSold: number;
+    tokensSold: number;
+    tokensGranted: number;
+    tokensSpent: number;
+    revenueMinor: number;
+    costMinor: number;
+    marginMinor: number;
+    modelCostUsd: number;
+  };
   users: AdminUser[];
   notebooks: AdminNotebook[];
   manuscripts: AdminManuscript[];
 };
 
-type View = "accounts" | "workspaces" | "drafts";
+type View = "accounts" | "workspaces" | "drafts" | "economy";
 
 const VIEWS: { value: View; label: string }[] = [
   { value: "accounts", label: "Accounts" },
   { value: "workspaces", label: "Workspaces" },
   { value: "drafts", label: "Drafts" },
+  { value: "economy", label: "Token economy" },
 ];
 
 const numberFormat = new Intl.NumberFormat("en-US");
+
+function money(amountMinor: number, currency: string | null): string {
+  const symbols: Record<string, string> = { GHS: "GH₵", NGN: "₦", USD: "$", ZAR: "R" };
+  const symbol = currency ? symbols[currency] : undefined;
+  return `${symbol ?? `${currency ?? ""} `}${(amountMinor / 100).toFixed(2)}`;
+}
 
 function labelOf(list: { value: string; label: string }[], value: string): string {
   return list.find((entry) => entry.value === value)?.label ?? value;
@@ -134,6 +158,11 @@ export function AdminClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const grant = async (input: { userId: string; tokens: number; note?: string }) => {
+    await postJson("/api/admin/tokens", input);
+    await load();
+  };
 
   return (
     <>
@@ -193,7 +222,9 @@ export function AdminClient() {
                       ? data.users.length
                       : entry.value === "workspaces"
                         ? data.notebooks.length
-                        : data.manuscripts.length}
+                        : entry.value === "drafts"
+                          ? data.manuscripts.length
+                          : data.tokenEconomy.packsSold}
                   </span>
                 </button>
               ))}
@@ -412,6 +443,14 @@ export function AdminClient() {
                   </div>
                 )}
               </Card>
+            ) : null}
+
+            {view === "economy" ? (
+              <TokenEconomyView
+                economy={data.tokenEconomy}
+                users={data.users}
+                onGrant={grant}
+              />
             ) : null}
 
             <p className="mt-4 font-mono text-[11px] text-muted">

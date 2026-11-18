@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { createSession, hashPassword, normalizeEmail, validatePasswordStrength } from "@/lib/auth";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { STARTER_GRANT_TOKENS, grantTokens } from "@/lib/tokens";
 import { registerSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -41,6 +42,12 @@ export async function POST(request: Request) {
 
     const user = inserted[0];
     await createSession(user.id);
+    await grantTokens({
+      userId: user.id,
+      tokens: STARTER_GRANT_TOKENS,
+      kind: "starter-grant",
+      note: "Welcome grant — free tokens to run your first reviews",
+    });
 
     return ok({ user }, 201);
   } catch (error) {

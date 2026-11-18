@@ -19,12 +19,14 @@ import { Alert, Badge, Button, Card, EmptyState, Spinner, Stat } from "@/compone
 import { getJson, postJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookSummary } from "@/lib/types";
-import { formatDate, formatUsd } from "@/lib/utils";
+import { formatDate, formatTokens } from "@/lib/utils";
 
 type UsageResponse = {
   window: { days: number };
-  totals: { runs: number; costUsd: number; failures: number };
+  totals: { runs: number; tokensSpent: number; failures: number };
 };
+
+type TokenBalanceResponse = { balance: number };
 
 const STAGE_TONE: Record<string, "neutral" | "accent" | "good" | "warn"> = {
   planning: "neutral",
@@ -44,6 +46,7 @@ export function DashboardClient({
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<NotebookSummary[] | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(openNew);
   const [busy, setBusy] = useState(false);
@@ -51,12 +54,14 @@ export function DashboardClient({
 
   const load = useCallback(async () => {
     try {
-      const [notebookData, usageData] = await Promise.all([
+      const [notebookData, usageData, tokenData] = await Promise.all([
         getJson<{ notebooks: NotebookSummary[] }>("/api/notebooks"),
         getJson<UsageResponse>("/api/usage?days=30").catch(() => null),
+        getJson<TokenBalanceResponse>("/api/tokens").catch(() => null),
       ]);
       setNotebooks(notebookData.notebooks ?? []);
       setUsage(usageData);
+      setBalance(tokenData?.balance ?? null);
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : "Could not load your notebooks.");
       setNotebooks([]);
@@ -73,7 +78,7 @@ export function DashboardClient({
       notebooks: list.length,
       articles: list.reduce((sum, notebook) => sum + notebook.reviewCount, 0),
       drafts: list.reduce((sum, notebook) => sum + notebook.manuscriptCount, 0),
-      spend: list.reduce((sum, notebook) => sum + notebook.spendUsd, 0),
+      tokens: list.reduce((sum, notebook) => sum + notebook.spendTokens, 0),
     };
   }, [notebooks]);
 
@@ -125,11 +130,25 @@ export function DashboardClient({
             sub="Articles, proposals, abstracts"
           />
           <Stat
-            label="AI spend (30 days)"
-            value={formatUsd(usage?.totals.costUsd ?? totals.spend)}
-            sub={usage ? `${usage.totals.runs} model calls` : "Across all notebooks"}
+            label="Token balance"
+            value={balance === null ? "—" : formatTokens(balance)}
+            sub={
+              usage
+                ? `${formatTokens(usage.totals.tokensSpent)} spent in 30 days · ${usage.totals.runs} calls`
+                : "Across all notebooks"
+            }
+            tone={balance !== null && balance <= 0 ? "warn" : "neutral"}
           />
         </div>
+
+        {notebooks !== null && (totals.articles === 0 || totals.drafts === 0) ? (
+          <GettingStarted
+            hasNotebook={totals.notebooks > 0}
+            hasArticle={totals.articles > 0}
+            hasDraft={totals.drafts > 0}
+            onNew={() => setCreating(true)}
+          />
+        ) : null}
 
         <div className="mt-7 flex items-baseline justify-between gap-4">
           <h2 className="text-[15px] font-semibold tracking-tight text-ink">Your notebooks</h2>
@@ -200,6 +219,74 @@ export function DashboardClient({
   );
 }
 
+function GettingStarted({
+  hasNotebook,
+  hasArticle,
+  hasDraft,
+  onNew,
+}: {
+  hasNotebook: boolean;
+  hasArticle: boolean;
+  hasDraft: boolean;
+  onNew: () => void;
+}) {
+  const steps: { label: string; done: boolean; href?: string; onClick?: () => void }[] = [
+    {
+      label: "Create a notebook for your study",
+      done: hasNotebook,
+      onClick: onNew,
+    },
+    { label: "Upload an article and let it fill your taxonomy matrix", done: hasArticle },
+    { label: "Draft a section against your journal guideline", done: hasDraft },
+  ];
+  const remaining = steps.filter((step) => !step.done).length;
+
+  return (
+    <Card className="mt-5">
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3 px-5 py-4">
+        <div className="min-w-0">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted">Start here</p>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {remaining === 0
+              ? "That is the whole loop. Repeat it across your articles and the synthesis writes itself."
+              : `${remaining} ${remaining === 1 ? "step" : "steps"} to your first defended literature review.`}
+          </p>
+        </div>
+        <ol className="w-full space-y-1.5 sm:w-auto sm:min-w-[380px]">
+          {steps.map((step, index) => (
+            <li key={step.label} className="flex items-center gap-2.5">
+              <span
+                className={`grid size-5 shrink-0 place-items-center rounded-full border font-mono text-[10px] ${
+                  step.done ? "border-good bg-good-soft text-good" : "border-line-2 text-muted"
+                }`}
+              >
+                {step.done ? "✓" : index + 1}
+              </span>
+              {step.href ? (
+                <Link href={step.href} className="text-[13px] text-ink-2 underline-offset-2 hover:underline">
+                  {step.label}
+                </Link>
+              ) : step.onClick ? (
+                <button
+                  type="button"
+                  onClick={step.onClick}
+                  className="text-left text-[13px] text-ink-2 underline-offset-2 hover:underline"
+                >
+                  {step.label}
+                </button>
+              ) : step.done ? (
+                <span className="text-[13px] text-muted">{step.label}</span>
+              ) : (
+                <span className="text-[13px] text-ink-2">{step.label}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </Card>
+  );
+}
+
 function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
   const studyLabel = STUDY_TYPES.find((type) => type.value === notebook.studyType)?.label ?? notebook.studyType;
   const researchLabel =
@@ -235,7 +322,7 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
         <div className="mt-auto grid grid-cols-3 gap-3 border-t border-line pt-4">
           <Metric label="Articles" value={notebook.reviewCount} icon={<BookOpenCheck className="size-3.5" />} />
           <Metric label="Drafts" value={notebook.manuscriptCount} icon={<FileText className="size-3.5" />} />
-          <Metric label="Spend" value={formatUsd(notebook.spendUsd)} />
+          <Metric label="Tokens used" value={formatTokens(notebook.spendTokens)} />
         </div>
       </Link>
 

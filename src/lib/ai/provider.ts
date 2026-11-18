@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { aiRuns } from "@/db/schema";
+import { requireTokens, spendTokens } from "@/lib/tokens";
 import { estimateTokens } from "@/lib/utils";
 
 /**
@@ -44,6 +45,25 @@ export type AiResult = {
   latencyMs: number;
   citations: { title: string; url: string }[];
 };
+
+/**
+ * The usage shape routes may hand to the browser: token counts only. The
+ * USD cost behind a call is internal — it exists in `ai_runs` and in the
+ * admin profitability view, never in a client payload.
+ */
+export function publicUsage(usage: Usage): {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  tokens: number;
+} {
+  return {
+    promptTokens: usage.promptTokens,
+    completionTokens: usage.completionTokens,
+    totalTokens: usage.totalTokens,
+    tokens: usage.totalTokens,
+  };
+}
 
 export type AiContext = {
   userId: string;
@@ -368,8 +388,9 @@ export async function completeAndLog(
 ): Promise<AiResult> {
   const startedAt = Date.now();
   try {
+    await requireTokens(context.userId);
     const result = await complete(options);
-    await logRun({
+    const logged = await logRun({
       context,
       provider: result.provider,
       model: result.model,
@@ -377,6 +398,7 @@ export async function completeAndLog(
       latencyMs: Date.now() - startedAt,
       ok: true,
     });
+    await chargeTokens(context, result.usage, logged?.id ?? null);
     return { ...result, latencyMs: Date.now() - startedAt };
   } catch (error) {
     await logRun({
@@ -400,23 +422,47 @@ async function logRun(input: {
   latencyMs: number;
   ok: boolean;
   errorText?: string;
-}): Promise<void> {
+}): Promise<{ id: string } | null> {
   try {
-    await db.insert(aiRuns).values({
-      userId: input.context.userId,
-      notebookId: input.context.notebookId ?? null,
-      feature: input.context.feature,
-      provider: input.provider,
-      model: input.model,
-      promptTokens: input.usage.promptTokens,
-      completionTokens: input.usage.completionTokens,
-      costUsd: input.usage.costUsd,
-      latencyMs: input.latencyMs,
-      ok: input.ok,
-      errorText: input.errorText ?? null,
-    });
+    const inserted = await db
+      .insert(aiRuns)
+      .values({
+        userId: input.context.userId,
+        notebookId: input.context.notebookId ?? null,
+        feature: input.context.feature,
+        provider: input.provider,
+        model: input.model,
+        promptTokens: input.usage.promptTokens,
+        completionTokens: input.usage.completionTokens,
+        costUsd: input.usage.costUsd,
+        latencyMs: input.latencyMs,
+        ok: input.ok,
+        errorText: input.errorText ?? null,
+      })
+      .returning({ id: aiRuns.id });
+    return inserted[0] ?? null;
   } catch {
     // Metering must never break a request.
+    return null;
+  }
+}
+
+/**
+ * Charges the token ledger for a completed call. The user is debited the
+ * model tokens actually consumed, 1:1; the USD cost behind them stays
+ * internal and is only ever reported in the admin profitability view.
+ */
+async function chargeTokens(context: AiContext, usage: Usage, aiRunId: string | null): Promise<void> {
+  try {
+    await spendTokens({
+      userId: context.userId,
+      tokens: usage.promptTokens + usage.completionTokens,
+      feature: context.feature,
+      aiRunId: aiRunId ?? crypto.randomUUID(),
+      notebookId: context.notebookId ?? null,
+    });
+  } catch {
+    // The ledger is important, but a failed write must not fail the answer.
   }
 }
 
@@ -476,6 +522,7 @@ export function streamCompletion(
       let resolved: ResolvedProvider;
       try {
         resolved = resolveProvider();
+        await requireTokens(context.userId);
       } catch (error) {
         send({ type: "error", message: error instanceof Error ? error.message : "AI not configured" });
         finish();
@@ -562,7 +609,7 @@ export function streamCompletion(
             usage,
             latencyMs: Date.now() - startedAt,
             ok: true,
-          });
+          }).then((logged) => chargeTokens(context, usage, logged?.id ?? null));
 
           if (hooks.onFinish) {
             try {
@@ -572,7 +619,13 @@ export function streamCompletion(
             }
           }
 
-          send({ type: "done", model: finalModel, provider: resolved.provider, usage, citations });
+          send({
+            type: "done",
+            model: finalModel,
+            provider: resolved.provider,
+            usage: publicUsage(usage),
+            citations,
+          });
           succeeded = true;
           break;
         } catch (error) {

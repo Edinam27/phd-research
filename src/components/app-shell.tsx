@@ -33,7 +33,7 @@ export type ShellUser = {
 
 const PRIMARY_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/usage", label: "Cost & usage", icon: Coins },
+  { href: "/usage", label: "Tokens & usage", icon: Coins },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

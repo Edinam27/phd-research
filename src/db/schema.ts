@@ -340,6 +340,56 @@ export const aiRuns = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Token ledger — the studio's internal currency, one row per event    */
+/* ------------------------------------------------------------------ */
+
+/** Every way a token balance can move. */
+export const LEDGER_KINDS = ["starter-grant", "admin-grant", "purchase", "spend"] as const;
+export type LedgerKind = (typeof LEDGER_KINDS)[number];
+
+/**
+ * Append-only token ledger. A user's balance is the signed sum of all
+ * confirmed entries — never a stored column — so every grant, purchase and
+ * model call stays auditable. Purchases land as `pending` when Paystack
+ * is initialised and are flipped to `confirmed` once the gateway verifies
+ * the payment; only confirmed entries count toward the balance.
+ */
+export const tokenLedger = pgTable(
+  "token_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** starter-grant | admin-grant | purchase | spend */
+    kind: text("kind").notNull(),
+    /** Signed token amount: positive for credits, negative for spend. */
+    tokens: integer("tokens").notNull(),
+    /** pending | confirmed */
+    status: text("status").default("confirmed").notNull(),
+    /** Paystack transaction reference, unique per purchase. */
+    reference: text("reference"),
+    /** What the buyer paid, in the gateway's smallest subunit (pesewas). */
+    amountMinor: integer("amount_minor"),
+    /** ISO 4217 currency code the purchase was charged in. */
+    currency: text("currency"),
+    /** For spends: which studio feature burned the tokens. */
+    feature: text("feature"),
+    /** For spends: the metered run that produced the charge. */
+    aiRunId: uuid("ai_run_id"),
+    /** For spends: which notebook the call ran inside. */
+    notebookId: uuid("notebook_id").references(() => notebooks.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("token_ledger_reference_unique").on(table.reference),
+    index("token_ledger_user_idx").on(table.userId),
+    index("token_ledger_notebook_idx").on(table.notebookId),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
 /* Relations                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -389,3 +439,4 @@ export type Manuscript = typeof manuscripts.$inferSelect;
 export type ManuscriptSection = typeof manuscriptSections.$inferSelect;
 export type ResearchQuery = typeof researchQueries.$inferSelect;
 export type AiRun = typeof aiRuns.$inferSelect;
+export type TokenLedgerEntry = typeof tokenLedger.$inferSelect;

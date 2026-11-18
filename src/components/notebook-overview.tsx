@@ -22,7 +22,7 @@ import { Alert, Badge, Button, Card, CardHeader, Spinner, Stat } from "@/compone
 import { deleteJson, downloadFile, getJson, patchJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail } from "@/lib/types";
-import { formatDate, formatUsd } from "@/lib/utils";
+import { formatDate, formatTokens } from "@/lib/utils";
 
 const QUICK_LINKS = [
   {
@@ -135,7 +135,7 @@ export function NotebookOverview() {
         <Stat label="Articles in matrix" value={stats.reviews} sub="Rows you have reviewed" />
         <Stat label="Manuscripts" value={stats.manuscripts} sub="Articles, proposals, abstracts" />
         <Stat label="Research queries" value={stats.researchQueries} sub="Grounded answers and syntheses" />
-        <Stat label="AI spend" value={formatUsd(stats.spendUsd)} sub={`${stats.aiRuns} metered calls`} />
+        <Stat label="Tokens used" value={formatTokens(stats.spendTokens)} sub={`${stats.aiRuns} metered calls`} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
@@ -295,7 +295,7 @@ export function NotebookOverview() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5 text-[12.5px] text-muted">
           <span className="flex items-center gap-2">
             <Coins className="size-3.5 text-accent" />
-            Spend shown here is metered per notebook
+            Tokens shown here are charged per notebook
           </span>
           <span className="flex items-center gap-2">
             <Target className="size-3.5 text-accent" />

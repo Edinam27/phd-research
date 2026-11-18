@@ -7,7 +7,7 @@ import { canEdit, requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
 import { mapCitedReferences } from "@/lib/ai/map-review";
 import { referenceExtractionMessages } from "@/lib/ai/prompts";
-import { completeAndLog, extractJson } from "@/lib/ai/provider";
+import { completeAndLog, extractJson, publicUsage } from "@/lib/ai/provider";
 import { referenceAnchor } from "@/lib/references";
 
 export const runtime = "nodejs";
@@ -84,7 +84,7 @@ export async function POST(request: Request, { params }: Params) {
       referencedCount: references.length,
       reviewedCount: updated[0]?.citedReferences.length ?? references.length,
       model: result.model,
-      usage: result.usage,
+      usage: publicUsage(result.usage),
     });
   } catch (error) {
     return toErrorResponse(error);

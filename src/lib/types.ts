@@ -73,7 +73,7 @@ export type NotebookSummary = Notebook & {
   role: NotebookRole;
   reviewCount: number;
   manuscriptCount: number;
-  spendUsd: number;
+  spendTokens: number;
 };
 
 export type NotebookDetail = {
@@ -84,7 +84,7 @@ export type NotebookDetail = {
     reviews: number;
     manuscripts: number;
     researchQueries: number;
-    spendUsd: number;
+    spendTokens: number;
     aiRuns: number;
   };
 };

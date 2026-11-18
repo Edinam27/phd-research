@@ -7,7 +7,7 @@ import { canEdit, requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
 import { articleReviewMessages } from "@/lib/ai/prompts";
 import { draftIsUsable, mapReviewDraft } from "@/lib/ai/map-review";
-import { completeAndLog, extractJson } from "@/lib/ai/provider";
+import { completeAndLog, extractJson, publicUsage } from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -119,10 +119,10 @@ export async function POST(request: Request, { params }: Params) {
         .where(eq(reviews.id, id))
         .returning();
 
-      return ok({ draft, saved: true, review: updated[0], model: result.model, usage: result.usage });
+      return ok({ draft, saved: true, review: updated[0], model: result.model, usage: publicUsage(result.usage) });
     }
 
-    return ok({ draft, saved: false, model: result.model, usage: result.usage });
+    return ok({ draft, saved: false, model: result.model, usage: publicUsage(result.usage) });
   } catch (error) {
     return toErrorResponse(error);
   }

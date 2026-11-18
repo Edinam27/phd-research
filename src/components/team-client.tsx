@@ -23,7 +23,7 @@ import {
 import { ApiError, apiFetch, getJson, postJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail, NotebookRole } from "@/lib/types";
-import { formatUsd } from "@/lib/utils";
+import { formatTokens } from "@/lib/utils";
 
 const ROLE_TONE: Record<NotebookRole, "accent" | "good" | "warn"> = {
   owner: "accent",
@@ -156,8 +156,8 @@ export function TeamClient() {
               <Stat label="Manuscripts" value={detail.stats.manuscripts} sub="Articles, proposals, abstracts" />
               <Stat label="Research queries" value={detail.stats.researchQueries} sub="Grounded answers and syntheses" />
               <Stat
-                label="AI spend"
-                value={formatUsd(detail.stats.spendUsd)}
+                label="Tokens used"
+                value={formatTokens(detail.stats.spendTokens)}
                 sub={`${detail.stats.aiRuns} metered calls`}
               />
             </div>

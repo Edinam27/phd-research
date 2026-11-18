@@ -52,7 +52,7 @@ import type {
   StudyType,
   ReferenceLibraryEntry,
 } from "@/lib/types";
-import { cn, countWords, formatUsd } from "@/lib/utils";
+import { cn, countWords, formatTokens } from "@/lib/utils";
 
 type Tone = "neutral" | "accent" | "good" | "warn" | "bad";
 type MeterTone = "accent" | "good" | "warn";
@@ -279,7 +279,7 @@ export function ManuscriptWriter() {
             setStreamText("");
             setStreamModel(null);
             setDrafting(false);
-            flash(`Draft saved · ${frame.model} · ${formatUsd(frame.usage.costUsd)}`);
+            flash(`Draft saved · ${frame.model} · ${formatTokens(frame.usage.tokens)} tokens`);
           },
           onError: (message) => {
             setStreamText("");

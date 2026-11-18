@@ -7,7 +7,11 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-/** Cost and usage ledger — keeps the researcher honest about what the AI spend is. */
+/**
+ * Usage ledger for the signed-in researcher, denominated in studio tokens.
+ * The underlying USD model cost is internal — it appears only in the admin
+ * profitability view, never here.
+ */
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -20,32 +24,30 @@ export async function GET(request: Request) {
       db
         .select({
           runs: count(),
-          cost: sql<number>`coalesce(sum(${aiRuns.costUsd}), 0)`,
-          promptTokens: sql<number>`coalesce(sum(${aiRuns.promptTokens}), 0)`,
-          completionTokens: sql<number>`coalesce(sum(${aiRuns.completionTokens}), 0)`,
+          tokens: sql<number>`coalesce(sum(${aiRuns.promptTokens} + ${aiRuns.completionTokens}), 0)`,
           failures: sql<number>`coalesce(sum(case when ${aiRuns.ok} then 0 else 1 end), 0)`,
         })
         .from(aiRuns)
-        .where(and(eq(aiRuns.userId, user.id), gte(aiRuns.createdAt, since))),
+        .where(and(eq(aiRuns.userId, user.id), eq(aiRuns.ok, true), gte(aiRuns.createdAt, since))),
       db
         .select({
           feature: aiRuns.feature,
           runs: count(),
-          cost: sql<number>`coalesce(sum(${aiRuns.costUsd}), 0)`,
+          tokens: sql<number>`coalesce(sum(${aiRuns.promptTokens} + ${aiRuns.completionTokens}), 0)`,
         })
         .from(aiRuns)
-        .where(and(eq(aiRuns.userId, user.id), gte(aiRuns.createdAt, since)))
+        .where(and(eq(aiRuns.userId, user.id), eq(aiRuns.ok, true), gte(aiRuns.createdAt, since)))
         .groupBy(aiRuns.feature)
-        .orderBy(desc(sql`sum(${aiRuns.costUsd})`)),
+        .orderBy(desc(sql`sum(${aiRuns.promptTokens} + ${aiRuns.completionTokens})`)),
       db
         .select({
           model: aiRuns.model,
           provider: aiRuns.provider,
           runs: count(),
-          cost: sql<number>`coalesce(sum(${aiRuns.costUsd}), 0)`,
+          tokens: sql<number>`coalesce(sum(${aiRuns.promptTokens} + ${aiRuns.completionTokens}), 0)`,
         })
         .from(aiRuns)
-        .where(and(eq(aiRuns.userId, user.id), gte(aiRuns.createdAt, since)))
+        .where(and(eq(aiRuns.userId, user.id), eq(aiRuns.ok, true), gte(aiRuns.createdAt, since)))
         .groupBy(aiRuns.model, aiRuns.provider)
         .orderBy(desc(count())),
       db
@@ -53,7 +55,8 @@ export async function GET(request: Request) {
           id: aiRuns.id,
           feature: aiRuns.feature,
           model: aiRuns.model,
-          costUsd: aiRuns.costUsd,
+          promptTokens: aiRuns.promptTokens,
+          completionTokens: aiRuns.completionTokens,
           latencyMs: aiRuns.latencyMs,
           ok: aiRuns.ok,
           errorText: aiRuns.errorText,
@@ -70,14 +73,12 @@ export async function GET(request: Request) {
       window: { days, since },
       totals: {
         runs: Number(totals[0]?.runs ?? 0),
-        costUsd: Number(totals[0]?.cost ?? 0),
-        promptTokens: Number(totals[0]?.promptTokens ?? 0),
-        completionTokens: Number(totals[0]?.completionTokens ?? 0),
+        tokensSpent: Number(totals[0]?.tokens ?? 0),
         failures: Number(totals[0]?.failures ?? 0),
       },
-      byFeature: byFeature.map((row) => ({ ...row, runs: Number(row.runs), cost: Number(row.cost) })),
-      byModel: byModel.map((row) => ({ ...row, runs: Number(row.runs), cost: Number(row.cost) })),
-      recent,
+      byFeature: byFeature.map((row) => ({ ...row, runs: Number(row.runs), tokens: Number(row.tokens) })),
+      byModel: byModel.map((row) => ({ ...row, runs: Number(row.runs), tokens: Number(row.tokens) })),
+      recent: recent.map((run) => ({ ...run, tokens: run.promptTokens + run.completionTokens })),
     });
   } catch (error) {
     return toErrorResponse(error);

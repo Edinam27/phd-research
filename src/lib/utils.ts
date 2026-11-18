@@ -37,6 +37,11 @@ export function formatUsd(value: number | null | undefined): string {
   return `$${amount.toFixed(2)}`;
 }
 
+/** Token counts read as figures, never as currency — mono, tabular, no unit clutter. */
+export function formatTokens(value: number | null | undefined): string {
+  return new Intl.NumberFormat("en-US").format(Math.round(value ?? 0));
+}
+
 export function initials(name: string): string {
   return name
     .split(/\s+/)

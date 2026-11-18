@@ -1,7 +1,7 @@
 import { and, count, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { aiRuns, manuscripts, notebookMembers, notebooks, researchQueries, reviews, users } from "@/db/schema";
+import { aiRuns, manuscripts, notebookMembers, notebooks, researchQueries, reviews, tokenLedger, users } from "@/db/schema";
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,14 +19,18 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params;
     const { notebook, role } = await requireNotebookAccess(id, user.id, user.isAdmin);
 
-    const [reviewCount, manuscriptCount, researchCount, spend, members] = await Promise.all([
+    const [reviewCount, manuscriptCount, researchCount, aiRunCount, tokenSpend, members] = await Promise.all([
       db.select({ total: count() }).from(reviews).where(eq(reviews.notebookId, id)),
       db.select({ total: count() }).from(manuscripts).where(eq(manuscripts.notebookId, id)),
       db.select({ total: count() }).from(researchQueries).where(eq(researchQueries.notebookId, id)),
       db
-        .select({ cost: sql<number>`coalesce(sum(${aiRuns.costUsd}), 0)`, runs: count() })
+        .select({ runs: count() })
         .from(aiRuns)
         .where(and(eq(aiRuns.notebookId, id), eq(aiRuns.ok, true))),
+      db
+        .select({ tokens: sql<number>`coalesce(sum(abs(${tokenLedger.tokens})), 0)` })
+        .from(tokenLedger)
+        .where(and(eq(tokenLedger.notebookId, id), eq(tokenLedger.kind, "spend"), eq(tokenLedger.status, "confirmed"))),
       db
         .select({ id: users.id, name: users.name, email: users.email, role: notebookMembers.role })
         .from(notebookMembers)
@@ -42,8 +46,8 @@ export async function GET(_request: Request, { params }: Params) {
         reviews: Number(reviewCount[0]?.total ?? 0),
         manuscripts: Number(manuscriptCount[0]?.total ?? 0),
         researchQueries: Number(researchCount[0]?.total ?? 0),
-        spendUsd: Number(spend[0]?.cost ?? 0),
-        aiRuns: Number(spend[0]?.runs ?? 0),
+        spendTokens: Number(tokenSpend[0]?.tokens ?? 0),
+        aiRuns: Number(aiRunCount[0]?.runs ?? 0),
       },
     });
   } catch (error) {

@@ -19,7 +19,7 @@ import { Alert, Badge, Button, Card, Spinner } from "@/components/ui";
 import { downloadFile, getJson } from "@/lib/client";
 import { RESEARCH_TYPES, STUDY_TYPES } from "@/lib/guideline";
 import type { NotebookDetail } from "@/lib/types";
-import { cn, formatUsd } from "@/lib/utils";
+import { cn, formatTokens } from "@/lib/utils";
 
 const TABS = [
   { href: "", label: "Overview", icon: Gauge },
@@ -94,7 +94,7 @@ export default function NotebookLayout({ children }: { children: React.ReactNode
                   <div className="mr-1 hidden items-center gap-4 text-right sm:flex">
                     <HeaderStat label="Articles" value={String(detail.stats.reviews)} />
                     <HeaderStat label="Drafts" value={String(detail.stats.manuscripts)} />
-                    <HeaderStat label="Spend" value={formatUsd(detail.stats.spendUsd)} />
+                    <HeaderStat label="Tokens used" value={formatTokens(detail.stats.spendTokens)} />
                   </div>
                   <Button
                     variant="ghost"

@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { AccessError } from "@/lib/access";
 import { AiConfigError, AiRequestError } from "@/lib/ai/provider";
 import { ExtractionError } from "@/lib/extract";
+import { InsufficientTokensError } from "@/lib/tokens";
 
 export function ok<T>(data: T, status = 200): NextResponse {
   return NextResponse.json(data as object, { status });
@@ -26,6 +27,7 @@ export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ExtractionError) return fail(error.message, 422);
   if (error instanceof AiConfigError) return fail(error.message, 503);
   if (error instanceof AiRequestError) return fail(error.message, error.status);
+  if (error instanceof InsufficientTokensError) return fail(error.message, 402);
 
   // Anything unhandled is a bug on our side: log the detail, tell the client nothing.
   console.error("[api]", error);

@@ -246,7 +246,7 @@ export function NotebookForm({
         <p className="text-[12px] text-muted">
           {objectives.length > 0
             ? `${objectives.length} objectives and ${fromCsv(form.keyVariables).length} variables will be injected into every draft and review.`
-            : "Notebooks keep each study's evidence, drafts and AI spend completely separate."}
+            : "Notebooks keep each study's evidence, drafts and token spend completely separate."}
         </p>
         <Button type="submit" variant="primary" loading={busy}>
           <Plus className="size-3.5" />

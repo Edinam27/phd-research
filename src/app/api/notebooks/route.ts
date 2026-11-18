@@ -1,7 +1,7 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { aiRuns, manuscripts, notebooks, reviews } from "@/db/schema";
+import { manuscripts, notebooks, reviews, tokenLedger } from "@/db/schema";
 import { ok, readJson, toErrorResponse } from "@/lib/api";
 import { listNotebooksForUser } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
@@ -20,7 +20,7 @@ export async function GET() {
 
     const ids = rows.map((row) => row.notebook.id);
 
-    const [reviewCounts, manuscriptCounts, spend] = await Promise.all([
+    const [reviewCounts, manuscriptCounts, tokenSpend] = await Promise.all([
       db
         .select({ notebookId: reviews.notebookId, total: count() })
         .from(reviews)
@@ -32,15 +32,20 @@ export async function GET() {
         .where(inArray(manuscripts.notebookId, ids))
         .groupBy(manuscripts.notebookId),
       db
-        .select({ notebookId: aiRuns.notebookId, cost: sql<number>`coalesce(sum(${aiRuns.costUsd}), 0)` })
-        .from(aiRuns)
-        .where(and(inArray(aiRuns.notebookId, ids), eq(aiRuns.ok, true)))
-        .groupBy(aiRuns.notebookId),
+        .select({
+          notebookId: tokenLedger.notebookId,
+          tokens: sql<number>`coalesce(sum(abs(${tokenLedger.tokens})), 0)`,
+        })
+        .from(tokenLedger)
+        .where(
+          sql`${inArray(tokenLedger.notebookId, ids)} and ${eq(tokenLedger.kind, "spend")} and ${eq(tokenLedger.status, "confirmed")}`,
+        )
+        .groupBy(tokenLedger.notebookId),
     ]);
 
     const reviewMap = new Map(reviewCounts.map((row) => [row.notebookId, Number(row.total)]));
     const manuscriptMap = new Map(manuscriptCounts.map((row) => [row.notebookId, Number(row.total)]));
-    const spendMap = new Map(spend.map((row) => [row.notebookId, Number(row.cost)]));
+    const tokenMap = new Map(tokenSpend.map((row) => [row.notebookId, Number(row.tokens)]));
 
     return ok({
       notebooks: rows.map((row) => ({
@@ -48,7 +53,7 @@ export async function GET() {
         role: row.role,
         reviewCount: reviewMap.get(row.notebook.id) ?? 0,
         manuscriptCount: manuscriptMap.get(row.notebook.id) ?? 0,
-        spendUsd: spendMap.get(row.notebook.id) ?? 0,
+        spendTokens: tokenMap.get(row.notebook.id) ?? 0,
       })),
     });
   } catch (error) {

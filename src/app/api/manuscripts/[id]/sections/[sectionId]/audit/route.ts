@@ -2,7 +2,7 @@ import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { canEdit } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
 import { complianceMessages } from "@/lib/ai/prompts";
-import { completeAndLog, extractJson } from "@/lib/ai/provider";
+import { completeAndLog, extractJson, publicUsage } from "@/lib/ai/provider";
 import { loadSectionContext } from "@/lib/manuscripts";
 import { countWords } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export async function POST(request: Request, { params }: Params) {
       ).slice(0, 300),
     };
 
-    return ok({ report, model: result.model, usage: result.usage, words: countWords(content) });
+    return ok({ report, model: result.model, usage: publicUsage(result.usage), words: countWords(content) });
   } catch (error) {
     return toErrorResponse(error);
   }

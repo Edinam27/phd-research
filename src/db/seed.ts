@@ -15,6 +15,7 @@ config();
 import { getDb } from "./index";
 import { manuscriptSections, manuscripts, notebooks, reviews, users } from "./schema";
 import { getSections } from "../lib/guideline";
+import { STARTER_GRANT_TOKENS, grantTokens, getTokenBalance } from "../lib/tokens";
 
 const DEMO_EMAIL = "demo@phdstudio.local";
 const DEMO_PASSWORD = "research1234";
@@ -41,6 +42,18 @@ async function main() {
     console.log(`Created demo account ${DEMO_EMAIL}`);
   } else {
     console.log(`Demo account ${DEMO_EMAIL} already exists — leaving it untouched.`);
+  }
+
+  // The token economy starts everyone off with free tokens; the demo account
+  // is topped up the same way a fresh registration would be.
+  if ((await getTokenBalance(userId)) === 0) {
+    await grantTokens({
+      userId,
+      tokens: STARTER_GRANT_TOKENS,
+      kind: "starter-grant",
+      note: "Welcome grant — free tokens to run your first reviews",
+    });
+    console.log(`Credited the starter grant (${STARTER_GRANT_TOKENS.toLocaleString()} tokens).`);
   }
 
   const existingNotebook = await db

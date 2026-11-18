@@ -131,7 +131,7 @@ export function SettingsView({ user }: { user: SettingsUser }) {
 
               <p className="text-[12.5px] text-ink-2">
                 <Link href="/usage" className="text-accent-ink underline underline-offset-2">
-                  See what you have spent
+                  See your token balance and spend
                 </Link>
               </p>
             </div>

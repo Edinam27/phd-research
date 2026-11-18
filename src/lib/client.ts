@@ -77,7 +77,8 @@ export type SseUsage = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-  costUsd: number;
+  /** Studio tokens charged to the balance for this call. */
+  tokens: number;
 };
 
 export type SseCitation = { title: string; url: string };

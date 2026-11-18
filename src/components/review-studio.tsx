@@ -36,7 +36,7 @@ import { ApiError, apiFetch, getJson, patchJson, postJson } from "@/lib/client";
 import { scoreReviewCompleteness, TAXONOMY_COLUMNS, type TaxonomyField } from "@/lib/taxonomy";
 import type { NotebookDetail, Review, Verdict } from "@/lib/types";
 import { ArticleReadError, prepareArticleFile } from "@/lib/upload";
-import { cn, formatUsd } from "@/lib/utils";
+import { cn, formatTokens } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -85,7 +85,7 @@ type AnalyzeResult = {
   draft: Partial<Review>;
   source?: AnalyzeSource;
   model: string;
-  usage: { promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number };
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number; tokens: number };
 };
 
 type ReviewsResponse = { reviews: Review[] };
@@ -762,8 +762,8 @@ export function ReviewStudio() {
             <div className="grid grid-cols-2 gap-3">
               <Stat label="Reviews" value={detail.stats.reviews} sub="Rows in the matrix" />
               <Stat
-                label="AI spend"
-                value={formatUsd(detail.stats.spendUsd)}
+                label="Tokens used"
+                value={formatTokens(detail.stats.spendTokens)}
                 sub={`${detail.stats.aiRuns} metered calls`}
               />
             </div>

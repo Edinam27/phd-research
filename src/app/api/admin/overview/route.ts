@@ -9,11 +9,13 @@ import {
   notebooks,
   researchQueries,
   reviews,
+  tokenLedger,
   users,
 } from "@/db/schema";
 import { fail, ok, toErrorResponse } from "@/lib/api";
 import { requireAdmin } from "@/lib/access";
 import { getCurrentUser, isAdministrator } from "@/lib/auth";
+import { TOKEN_PACKS } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -41,6 +43,8 @@ export async function GET() {
       authoredReviews,
       authoredManuscripts,
       userSpend,
+      tokenFlows,
+      tokenRevenue,
       workspaces,
       workspaceReviews,
       workspaceManuscripts,
@@ -102,6 +106,25 @@ export async function GET() {
         })
         .from(aiRuns)
         .groupBy(aiRuns.userId),
+      // Token economy: what was sold, granted and spent, and what it cost us.
+      db
+        .select({
+          userId: tokenLedger.userId,
+          kind: tokenLedger.kind,
+          tokens: sql<number>`coalesce(sum(case when ${tokenLedger.kind} = 'spend' then abs(${tokenLedger.tokens}) else ${tokenLedger.tokens} end), 0)`,
+        })
+        .from(tokenLedger)
+        .where(eq(tokenLedger.status, "confirmed"))
+        .groupBy(tokenLedger.userId, tokenLedger.kind),
+      db
+        .select({
+          userId: tokenLedger.userId,
+          revenueMinor: sql<number>`coalesce(sum(${tokenLedger.amountMinor}), 0)`,
+          currency: sql<string>`min(${tokenLedger.currency})`,
+        })
+        .from(tokenLedger)
+        .where(sql`${tokenLedger.kind} = 'purchase' and ${tokenLedger.status} = 'confirmed'`)
+        .groupBy(tokenLedger.userId),
 
       // Every workspace, with its owner and its shape.
       db
@@ -172,6 +195,32 @@ export async function GET() {
 
     const total = (rows: { total: unknown }[]): number => Number(rows[0]?.total ?? 0);
 
+    // Profitability, in the currency packs are sold in: what collectors paid
+    // minus what the models behind their calls actually cost, converted at
+    // the configured rate. TOKENS_PER pack keeps margin visible per sale.
+    const ghsPerUsd = Number(process.env.GHS_PER_USD ?? 15.5);
+    const packSales = await db
+      .select({
+        packs: count(),
+        revenueMinor: sql<number>`coalesce(sum(${tokenLedger.amountMinor}), 0)`,
+        tokensSold: sql<number>`coalesce(sum(${tokenLedger.tokens}), 0)`,
+        currency: sql<string>`min(${tokenLedger.currency})`,
+      })
+      .from(tokenLedger)
+      .where(sql`${tokenLedger.kind} = 'purchase' and ${tokenLedger.status} = 'confirmed'`);
+    const grantedRow = tokenFlows.reduce(
+      (sum, row) =>
+        row.kind === "starter-grant" || row.kind === "admin-grant" ? sum + Number(row.tokens) : sum,
+      0,
+    );
+    const spentRow = tokenFlows.reduce(
+      (sum, row) => (row.kind === "spend" ? sum + Number(row.tokens) : sum),
+      0,
+    );
+    const modelCostUsd = Number(aiTotals[0]?.cost ?? 0);
+    const revenueMinor = Number(packSales[0]?.revenueMinor ?? 0);
+    const costMinor = Math.round(modelCostUsd * ghsPerUsd * 100);
+
     // The flag lives in the database; the environment allowlist is the bootstrap,
     // so an administrator is whoever either of them says is one.
     const accountsWithAccess = accounts.map((account) => ({
@@ -193,15 +242,37 @@ export async function GET() {
         aiCostUsd: Number(aiTotals[0]?.cost ?? 0),
         aiFailures: Number(aiTotals[0]?.failures ?? 0),
       },
-      users: accountsWithAccess.map((account) => ({
-        ...account,
-        notebooksOwned: Number(ownedNotebooks.find((row) => row.userId === account.id)?.total ?? 0),
-        sharedInto: Number(sharedNotebooks.find((row) => row.userId === account.id)?.total ?? 0),
-        reviews: Number(authoredReviews.find((row) => row.userId === account.id)?.total ?? 0),
-        manuscripts: Number(authoredManuscripts.find((row) => row.userId === account.id)?.total ?? 0),
-        aiRuns: Number(userSpend.find((row) => row.userId === account.id)?.runs ?? 0),
-        aiCostUsd: Number(userSpend.find((row) => row.userId === account.id)?.cost ?? 0),
-      })),
+      tokenEconomy: {
+        currency: packSales[0]?.currency ?? (TOKEN_PACKS.length > 0 ? "GHS" : null),
+        packsSold: Number(packSales[0]?.packs ?? 0),
+        tokensSold: Number(packSales[0]?.tokensSold ?? 0),
+        tokensGranted: grantedRow,
+        tokensSpent: spentRow,
+        revenueMinor,
+        costMinor,
+        marginMinor: revenueMinor - costMinor,
+        modelCostUsd: modelCostUsd,
+      },
+      users: accountsWithAccess.map((account) => {
+        const flows = tokenFlows.filter((row) => row.userId === account.id);
+        const flowOf = (kind: string): number =>
+          Number(flows.find((row) => row.kind === kind)?.tokens ?? 0);
+        const revenue = tokenRevenue.find((row) => row.userId === account.id);
+        return {
+          ...account,
+          notebooksOwned: Number(ownedNotebooks.find((row) => row.userId === account.id)?.total ?? 0),
+          sharedInto: Number(sharedNotebooks.find((row) => row.userId === account.id)?.total ?? 0),
+          reviews: Number(authoredReviews.find((row) => row.userId === account.id)?.total ?? 0),
+          manuscripts: Number(authoredManuscripts.find((row) => row.userId === account.id)?.total ?? 0),
+          aiRuns: Number(userSpend.find((row) => row.userId === account.id)?.runs ?? 0),
+          aiCostUsd: Number(userSpend.find((row) => row.userId === account.id)?.cost ?? 0),
+          tokensPurchased: flowOf("purchase"),
+          tokensGranted: flowOf("starter-grant") + flowOf("admin-grant"),
+          tokensSpent: flowOf("spend"),
+          revenueMinor: Number(revenue?.revenueMinor ?? 0),
+          revenueCurrency: revenue?.currency ?? null,
+        };
+      }),
       notebooks: workspaces.map((workspace) => ({
         ...workspace,
         reviews: Number(workspaceReviews.find((row) => row.notebookId === workspace.id)?.total ?? 0),

@@ -1,7 +1,7 @@
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { requireNotebookAccess, canEdit } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
-import { completeAndLog, extractJson } from "@/lib/ai/provider";
+import { completeAndLog, extractJson, publicUsage } from "@/lib/ai/provider";
 import { articleReviewMessages } from "@/lib/ai/prompts";
 import { draftIsUsable, mapReviewDraft } from "@/lib/ai/map-review";
 import { extractDocument, ExtractionError, MAX_UPLOAD_BYTES } from "@/lib/extract";
@@ -127,7 +127,7 @@ export async function POST(request: Request, { params }: Params) {
         chars: source.text.length,
       },
       model: result.model,
-      usage: result.usage,
+      usage: publicUsage(result.usage),
     });
   } catch (error) {
     return toErrorResponse(error);

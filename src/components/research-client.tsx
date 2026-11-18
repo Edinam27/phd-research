@@ -37,7 +37,7 @@ import {
 } from "@/components/ui";
 import { ApiError, deleteJson, getJson, postJson, streamSse } from "@/lib/client";
 import type { NotebookDetail, ResearchEntry, Synthesis } from "@/lib/types";
-import { cn, formatDateTime, formatUsd } from "@/lib/utils";
+import { cn, formatDateTime, formatTokens } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
 /* Contracts                                                           */
@@ -57,14 +57,14 @@ type ResearchResponse = {
   entry: ResearchEntry;
   result: ResearchResult;
   model: string;
-  usage: { costUsd: number } | null;
+  usage: { tokens: number } | null;
 };
 
 type SynthesisResponse = {
   entry: ResearchEntry;
   synthesis: Synthesis;
   model: string;
-  usage: { costUsd: number } | null;
+  usage: { tokens: number } | null;
 };
 
 type Source = { title: string; url: string };
@@ -73,7 +73,7 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   model?: string | null;
-  costUsd?: number | null;
+  tokens?: number | null;
   failed?: boolean;
 };
 
@@ -535,7 +535,7 @@ export function ResearchClient() {
       });
       setResult(response.result);
       setResultModel(response.model);
-      setResultCost(response.usage?.costUsd ?? 0);
+      setResultCost(response.usage?.tokens ?? 0);
       setExpanded((prev) => ({ ...prev, [response.entry.id]: true }));
       await load();
     } catch (thrown) {
@@ -632,7 +632,7 @@ export function ResearchClient() {
               index === placeholderIndex ? { ...message, content: message.content + text } : message,
             ),
           ),
-        onDone: (frame) => patchLast({ model: frame.model, costUsd: frame.usage?.costUsd ?? 0 }),
+        onDone: (frame) => patchLast({ model: frame.model, tokens: frame.usage?.tokens ?? 0 }),
         onError: (message) => {
           setChatError(message);
           patchLast({ content: message, failed: true });
@@ -721,7 +721,7 @@ export function ResearchClient() {
             value={detail?.stats.researchQueries ?? 0}
             sub="Grounded questions recorded"
           />
-          <Stat label="AI spend" value={formatUsd(detail?.stats.spendUsd ?? 0)} sub="Metered model calls" />
+          <Stat label="Tokens used" value={formatTokens(detail?.stats.spendTokens ?? 0)} sub="Metered model calls" />
         </div>
 
         {!canEdit ? (
@@ -838,7 +838,7 @@ export function ResearchClient() {
                     ) : null}
 
                     <p className="border-t border-line pt-3 font-mono text-[11px] text-muted">
-                      {resultModel ?? "unknown model"} · {formatUsd(resultCost)}
+                      {resultModel ?? "unknown model"} · {formatTokens(resultCost)} tokens
                     </p>
                   </div>
                 </Card>
@@ -1091,7 +1091,7 @@ export function ResearchClient() {
                             </div>
                             {message.model ? (
                               <p className="mt-1.5 font-mono text-[11px] text-muted">
-                                {message.model} · {formatUsd(message.costUsd ?? 0)}
+                                {message.model} · {formatTokens(message.tokens ?? 0)} tokens
                               </p>
                             ) : null}
                           </div>

@@ -6,7 +6,7 @@ import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { canEdit, requireNotebookAccess } from "@/lib/access";
 import { getCurrentUser } from "@/lib/auth";
 import { synthesisMessages } from "@/lib/ai/prompts";
-import { completeAndLog, extractJson } from "@/lib/ai/provider";
+import { completeAndLog, extractJson, publicUsage } from "@/lib/ai/provider";
 import { EVIDENCE_COLUMNS } from "@/lib/manuscripts";
 import { synthesisSchema } from "@/lib/validation";
 
@@ -165,7 +165,7 @@ export async function POST(request: Request, { params }: Params) {
       })
       .returning();
 
-    return ok({ entry: inserted[0], synthesis, model: result.model, usage: result.usage }, 201);
+    return ok({ entry: inserted[0], synthesis, model: result.model, usage: publicUsage(result.usage) }, 201);
   } catch (error) {
     return toErrorResponse(error);
   }

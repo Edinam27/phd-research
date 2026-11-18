@@ -18,6 +18,7 @@ type TokenPack = {
 type TokensResponse = {
   balance: number;
   packs: TokenPack[];
+  checkout: { currency: string; usdRate: number };
 };
 
 const numberFormat = new Intl.NumberFormat("en-US");
@@ -93,6 +94,12 @@ export function WelcomeModal({ open, onClose }: { open: boolean; onClose: () => 
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ink">
                   {pack.name} · ${pack.priceUsd}
+                  {data && data.checkout.currency !== "USD" ? (
+                    <span className="ml-1.5 font-mono text-[11.5px] tabular-nums text-muted">
+                      ≈ {data.checkout.currency === "GHS" ? "GH₵" : ""}
+                      {Math.round(pack.priceUsd * data.checkout.usdRate)}
+                    </span>
+                  ) : null}
                 </p>
                 <p className="mt-0.5 truncate text-[12px] text-muted">{pack.blurb}</p>
               </div>

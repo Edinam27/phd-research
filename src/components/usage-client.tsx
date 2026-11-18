@@ -31,6 +31,7 @@ type TokenPack = {
 type TokensResponse = {
   balance: number;
   packs: TokenPack[];
+  checkout: { currency: string; usdRate: number };
   byFeature: { feature: string; tokens: number; calls: number }[];
   ledger: {
     id: string;
@@ -259,7 +260,14 @@ export function UsageClient() {
                     <p className="mt-1 text-[11.5px] text-muted">tokens</p>
                     <p className="mt-3 text-[12.5px] leading-relaxed text-ink-2">{pack.blurb}</p>
                     <div className="mt-auto flex items-center justify-between pt-4">
-                      <span className="font-mono text-[15px] tabular-nums text-ink">${pack.priceUsd}</span>
+                      <span className="font-mono text-[15px] tabular-nums text-ink">
+                        ${pack.priceUsd}
+                        {tokens.checkout.currency !== "USD" ? (
+                          <span className="ml-2 text-[11.5px] text-muted">
+                            ≈ {tokens.checkout.currency === "GHS" ? "GH₵" : ""}{Math.round(pack.priceUsd * tokens.checkout.usdRate)}
+                          </span>
+                        ) : null}
+                      </span>
                       <Button
                         size="sm"
                         variant={tokens.balance <= 0 ? "primary" : "secondary"}

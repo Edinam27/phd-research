@@ -66,6 +66,22 @@ export function findPack(packId: string): TokenPack | undefined {
   return TOKEN_PACKS.find((pack) => pack.id === packId);
 }
 
+/**
+ * Cedis per US dollar. Pack prices are authored in dollars but Paystack
+ * Ghana accounts settle in cedis, so checkout converts at this rate — and
+ * the admin margin panel converts model cost back the same way, keeping
+ * both sides of the ledger in one currency.
+ */
+export const GHS_PER_USD_RATE = Number(process.env.GHS_PER_USD ?? 15.5);
+
+/** The amount Paystack should charge for a pack, in its smallest subunit. */
+export function checkoutAmount(pack: TokenPack): { amountMinor: number; currency: string } {
+  const currency = (process.env.PAYSTACK_CURRENCY ?? "GHS").toUpperCase();
+  const amountMinor =
+    currency === "USD" ? pack.priceUsd * 100 : Math.round(pack.priceUsd * GHS_PER_USD_RATE) * 100;
+  return { amountMinor, currency };
+}
+
 /** Free tokens credited when an account is created. */
 export const STARTER_GRANT_TOKENS = Number(process.env.STARTER_GRANT_TOKENS ?? 100_000);
 

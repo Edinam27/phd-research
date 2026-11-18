@@ -48,9 +48,13 @@ export function publicKey(): string {
   return key;
 }
 
-/** USD by default; override with PAYSTACK_CURRENCY if the account settles elsewhere. */
+/**
+ * GHS by default: Ghanaian Paystack accounts settle in cedis, so dollar
+ * pack prices are converted at checkout using GHS_PER_USD. Set
+ * PAYSTACK_CURRENCY=USD only if the account genuinely settles in dollars.
+ */
 export function purchaseCurrency(): string {
-  return (process.env.PAYSTACK_CURRENCY ?? "USD").toUpperCase();
+  return (process.env.PAYSTACK_CURRENCY ?? "GHS").toUpperCase();
 }
 
 export function newPurchaseReference(): string {

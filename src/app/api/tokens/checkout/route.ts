@@ -2,9 +2,9 @@ import { z } from "zod";
 
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { PaystackConfigError, PaystackRequestError, initializePurchase, newPurchaseReference, purchaseCurrency } from "@/lib/paystack";
+import { PaystackConfigError, PaystackRequestError, initializePurchase, newPurchaseReference } from "@/lib/paystack";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
-import { findPack, writeLedgerEntry } from "@/lib/tokens";
+import { checkoutAmount, findPack, writeLedgerEntry } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -27,7 +27,9 @@ export async function POST(request: Request) {
     const pack = findPack(body.packId);
     if (!pack) return fail("That pack does not exist.", 404);
 
-    const currency = purchaseCurrency();
+    // Pack prices are authored in dollars; the gateway is charged in the
+    // account's settlement currency — the cedi equivalent by default.
+    const { amountMinor, currency } = checkoutAmount(pack);
     const reference = newPurchaseReference();
     const origin = process.env.APP_URL ?? new URL(request.url).origin;
     const callbackUrl = `${origin}/tokens?ref=${encodeURIComponent(reference)}`;
@@ -40,17 +42,17 @@ export async function POST(request: Request) {
       tokens: pack.tokens,
       status: "pending",
       reference,
-      amountMinor: pack.priceUsd * 100,
+      amountMinor,
       currency,
-      note: `${pack.name} — pending checkout`,
+      note: `${pack.name} — pending checkout ($${pack.priceUsd})`,
     });
 
     const authorizationUrl = await initializePurchase({
       email: user.email,
-      amountMinor: pack.priceUsd * 100,
+      amountMinor,
       reference,
       callbackUrl,
-      metadata: { packId: pack.id, userId: user.id, tokens: pack.tokens },
+      metadata: { packId: pack.id, userId: user.id, tokens: pack.tokens, listPriceUsd: pack.priceUsd },
     });
 
     return ok({ authorizationUrl, reference }, 201);

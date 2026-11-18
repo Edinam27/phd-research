@@ -197,9 +197,9 @@ export async function GET() {
 
     // Profitability, in the currency packs are sold in: what buyers paid
     // minus what the models behind their calls actually cost. Model spend is
-    // recorded in USD, so USD sales convert 1:1; any other sale currency
-    // goes through the configured rate.
-    const saleCurrency = (process.env.PAYSTACK_CURRENCY ?? "USD").toUpperCase();
+    // recorded in USD, so USD sales convert 1:1; cedi sales (the default)
+    // go through the same rate checkout used.
+    const saleCurrency = (process.env.PAYSTACK_CURRENCY ?? "GHS").toUpperCase();
     const packSales = await db
       .select({
         packs: count(),

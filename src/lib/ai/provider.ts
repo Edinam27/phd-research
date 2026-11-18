@@ -16,7 +16,7 @@ import { estimateTokens } from "@/lib/utils";
  * Every call is metered into `ai_runs` so a notebook can show what it cost.
  */
 
-export type AiProvider = "openrouter" | "perplexity" | "openai";
+export type AiProvider = "gemini" | "openrouter" | "perplexity" | "openai";
 export type ModelTier = "reasoning" | "research" | "fast";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -81,7 +81,13 @@ const PRICE_TABLE: Record<string, { input: number; output: number }> = {
   sonar: { input: 1, output: 1 },
   "sonar-pro": { input: 3, output: 15 },
   "google/gemini-2.5-flash": { input: 0.3, output: 2.5 },
+  "gemini-2.5-flash": { input: 0.3, output: 2.5 },
   "google/gemini-2.5-flash-lite": { input: 0.1, output: 0.4 },
+  "gemini-2.5-flash-lite": { input: 0.1, output: 0.4 },
+  "gemini-flash-latest": { input: 0.3, output: 2.5 },
+  "gemini-3.8-flash": { input: 0.3, output: 2.5 },
+  "gemini-flash-lite-latest": { input: 0.1, output: 0.4 },
+  "gemini-3.5-flash-lite": { input: 0.1, output: 0.4 },
   "google/gemini-2.0-flash-001": { input: 0.1, output: 0.4 },
   "google/gemini-2.0-flash-lite-001": { input: 0.075, output: 0.3 },
   "deepseek/deepseek-chat": { input: 0.27, output: 1.1 },
@@ -118,6 +124,26 @@ type ResolvedProvider = {
   apiKey: string;
   envVar: string;
 };
+
+/** One concrete (provider, model) try in the fallback chain. */
+type Attempt = ResolvedProvider & { model: string };
+
+/**
+ * Gemini direct via its OpenAI-compatible endpoint. When GEMINI_API_KEY is
+ * present the studio spends its free daily quota before touching any paid
+ * provider; exhausted free quota simply fails those attempts and the chain
+ * falls through.
+ */
+function geminiProvider(): ResolvedProvider | null {
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key) return null;
+  return {
+    provider: "gemini",
+    baseUrl: process.env.GEMINI_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKey: key,
+    envVar: "GEMINI_API_KEY",
+  };
+}
 
 export function resolveProvider(): ResolvedProvider {
   const configured = (process.env.AI_PROVIDER ?? "openrouter").toLowerCase();
@@ -171,6 +197,33 @@ export function resolveProvider(): ResolvedProvider {
   };
 }
 
+/**
+ * Providers to try for a tier, in order. Everywhere except the research tier
+ * the free Gemini daily quota is spent first. The research tier keeps the
+ * grounded provider (built-in web search) first so literature claims still
+ * come back with real citations. A missing primary is tolerated when Gemini
+ * is configured, so the studio still works with a Gemini key alone.
+ */
+export function resolveProviders(tier: ModelTier): ResolvedProvider[] {
+  const gemini = geminiProvider();
+  let primary: ResolvedProvider | null = null;
+  try {
+    primary = resolveProvider();
+  } catch {
+    primary = null;
+  }
+
+  if (tier === "research") {
+    const list = primary ? [primary] : [];
+    if (gemini) list.push(gemini);
+    return list;
+  }
+
+  const list = gemini ? [gemini] : [];
+  if (primary) list.push(primary);
+  return list;
+}
+
 function envModels(key: string, fallback: string[]): string[] {
   const raw = process.env[key]?.trim();
   if (!raw) return fallback;
@@ -180,17 +233,27 @@ function envModels(key: string, fallback: string[]): string[] {
     .filter(Boolean);
 }
 
-/** Ordered attempt list — the first model that answers wins. */
-export function modelsForTier(tier: ModelTier): string[] {
-  const provider = (process.env.AI_PROVIDER ?? "openrouter").toLowerCase();
-  const fallbacks = envModels("AI_FALLBACK_MODELS", []);
+/** Ordered attempt list for one tier on one provider — the first model that answers wins. */
+export function modelsForTier(tier: ModelTier, provider: AiProvider): string[] {
+  const openrouterStyle = provider === "openrouter" || provider === "perplexity";
+  const envFallbacks = openrouterStyle ? envModels("AI_FALLBACK_MODELS", []) : [];
+
+  if (provider === "gemini") {
+    // The flash-lite tier answers reliably on the OpenAI-compatible endpoint
+    // today; the 3.x flash generation is a thinking-first family that stalls
+    // or 503s under load, so it sits second and the chain moves on when it
+    // does not answer. Override with GEMINI_MODEL_* as models settle.
+    if (tier === "fast") return envModels("GEMINI_MODEL_FAST", ["gemini-flash-lite-latest"]);
+    if (tier === "research") return envModels("GEMINI_MODEL_RESEARCH", ["gemini-flash-lite-latest"]);
+    return envModels("GEMINI_MODEL_REASONING", ["gemini-flash-lite-latest", "gemini-3.8-flash"]);
+  }
 
   if (provider === "perplexity") {
     const primary =
       tier === "research"
         ? envModels("AI_MODEL_RESEARCH", ["sonar"])
         : envModels("AI_MODEL_REASONING", ["sonar"]);
-    return [...primary, ...fallbacks];
+    return [...primary, ...envFallbacks];
   }
 
   if (provider === "openai") {
@@ -198,14 +261,14 @@ export function modelsForTier(tier: ModelTier): string[] {
       tier === "research"
         ? envModels("AI_MODEL_RESEARCH", ["gpt-4o-mini"])
         : envModels("AI_MODEL_REASONING", ["gpt-4.1-mini"]);
-    return [...primary, ...fallbacks];
+    return [...primary, ...envFallbacks];
   }
 
   if (tier === "research") {
     return [
       ...envModels("AI_MODEL_RESEARCH", ["perplexity/sonar"]),
       ...envModels("AI_MODEL_REASONING", ["google/gemini-2.5-flash"]),
-      ...fallbacks,
+      ...envFallbacks,
     ];
   }
 
@@ -213,13 +276,13 @@ export function modelsForTier(tier: ModelTier): string[] {
     return [
       ...envModels("AI_MODEL_FAST", ["google/gemini-2.5-flash-lite"]),
       ...envModels("AI_MODEL_REASONING", ["google/gemini-2.5-flash"]),
-      ...fallbacks,
+      ...envFallbacks,
     ];
   }
 
   return [
     ...envModels("AI_MODEL_REASONING", ["google/gemini-2.5-flash"]),
-    ...fallbacks,
+    ...envFallbacks,
     ...envModels("AI_MODEL_RESEARCH", ["perplexity/sonar"]),
   ];
 }
@@ -231,31 +294,43 @@ export function estimateCost(model: string, promptTokens: number, completionToke
   return Math.round(cost * 1_000_000) / 1_000_000;
 }
 
+/**
+ * What a call cost the studio. Calls served by the Gemini free daily quota
+ * cost nothing; set GEMINI_FREE_TIER=false once the key is on a paid plan so
+ * list prices apply and the profitability panel stays honest.
+ */
+function callCostUsd(provider: AiProvider, model: string, promptTokens: number, completionTokens: number): number {
+  if (provider === "gemini" && process.env.GEMINI_FREE_TIER !== "false") return 0;
+  return estimateCost(model, promptTokens, completionTokens);
+}
+
 export function aiStatus(): {
   configured: boolean;
   provider: string;
+  freeProvider: string | null;
   researchModel: string;
   reasoningModel: string;
   issue: string | null;
 } {
+  let providerLabel = "not configured";
+  let primaryIssue: string | null = null;
   try {
-    const resolved = resolveProvider();
-    return {
-      configured: true,
-      provider: resolved.provider,
-      researchModel: modelsForTier("research")[0] ?? "—",
-      reasoningModel: modelsForTier("reasoning")[0] ?? "—",
-      issue: null,
-    };
+    providerLabel = resolveProvider().provider;
   } catch (error) {
-    return {
-      configured: false,
-      provider: (process.env.AI_PROVIDER ?? "openrouter").toLowerCase(),
-      researchModel: "—",
-      reasoningModel: "—",
-      issue: error instanceof Error ? error.message : "AI provider is not configured.",
-    };
+    primaryIssue = error instanceof Error ? error.message : "AI provider is not configured.";
   }
+
+  const gemini = geminiProvider();
+  const configured = Boolean(gemini) || primaryIssue === null;
+
+  return {
+    configured,
+    provider: providerLabel,
+    freeProvider: gemini ? "gemini (free daily quota first)" : null,
+    researchModel: modelsForTier("research", primaryIssue && gemini ? "gemini" : "openrouter")[0] ?? "—",
+    reasoningModel: modelsForTier("reasoning", gemini ? "gemini" : "openrouter")[0] ?? "—",
+    issue: configured ? null : (primaryIssue ?? "No model provider is configured."),
+  };
 }
 
 type CallOptions = {
@@ -265,6 +340,9 @@ type CallOptions = {
   temperature?: number;
   maxTokens?: number;
 };
+
+/** Hard ceiling per model attempt, so a hung model can never wedge a request. */
+const REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS ?? 180_000);
 
 async function postChat(
   resolved: ResolvedProvider,
@@ -283,10 +361,13 @@ async function postChat(
     headers["X-Title"] = "Kadi Research Studio";
   }
 
+  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const composedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+
   return fetch(`${resolved.baseUrl}/chat/completions`, {
     method: "POST",
     headers,
-    signal,
+    signal: composedSignal,
     body: JSON.stringify({
       model,
       messages: options.messages,
@@ -297,11 +378,29 @@ async function postChat(
   });
 }
 
-function buildAttempts(options: CallOptions): string[] {
-  if (options.model) return [options.model];
+function buildAttempts(options: CallOptions): Attempt[] {
+  if (options.model) {
+    // An explicit model rides on the primary provider only.
+    const primary = resolveProvider();
+    return [{ ...primary, model: options.model }];
+  }
   const tiers: ModelTier[] = options.tier === "research" ? ["research"] : [options.tier ?? "reasoning"];
-  const attempts = tiers.flatMap((tier) => modelsForTier(tier));
-  return Array.from(new Set(attempts)).slice(0, 4);
+  const attempts: Attempt[] = [];
+  for (const tier of tiers) {
+    for (const provider of resolveProviders(tier)) {
+      for (const model of modelsForTier(tier, provider.provider)) {
+        attempts.push({ ...provider, model });
+      }
+    }
+  }
+  const seen = new Set<string>();
+  const unique = attempts.filter((attempt) => {
+    const key = `${attempt.provider}:${attempt.model}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.slice(0, 6);
 }
 
 async function readError(response: Response): Promise<string> {
@@ -326,21 +425,19 @@ export type RawCompletion = {
   citations: { title: string; url: string }[];
 };
 
-/** Non-streaming completion with automatic model fallback. */
+/** Non-streaming completion with automatic provider and model fallback. */
 export async function complete(
   options: CallOptions,
   signal?: AbortSignal,
 ): Promise<RawCompletion> {
-  const resolved = resolveProvider();
   const attempts = buildAttempts(options);
   const errors: string[] = [];
 
-  for (let index = 0; index < attempts.length; index += 1) {
-    const model = attempts[index];
+  for (const attempt of attempts) {
     try {
-      const response = await postChat(resolved, model, options, false, signal);
+      const response = await postChat(attempt, attempt.model, options, false, signal);
       if (!response.ok) {
-        errors.push(`${model}: ${await readError(response)}`);
+        errors.push(`${attempt.provider}/${attempt.model}: ${await readError(response)}`);
         continue;
       }
       const payload = (await response.json()) as {
@@ -351,7 +448,7 @@ export async function complete(
 
       const text = payload.choices?.[0]?.message?.content ?? "";
       if (!text.trim()) {
-        errors.push(`${model}: empty completion`);
+        errors.push(`${attempt.provider}/${attempt.model}: empty completion`);
         continue;
       }
 
@@ -362,18 +459,18 @@ export async function complete(
 
       return {
         text,
-        model,
-        provider: resolved.provider,
+        model: attempt.model,
+        provider: attempt.provider,
         citations: normalizeCitations(payload.citations),
         usage: {
           promptTokens,
           completionTokens,
           totalTokens: payload.usage?.total_tokens ?? promptTokens + completionTokens,
-          costUsd: estimateCost(model, promptTokens, completionTokens),
+          costUsd: callCostUsd(attempt.provider, attempt.model, promptTokens, completionTokens),
         },
       };
     } catch (error) {
-      errors.push(`${model}: ${error instanceof Error ? error.message : "network error"}`);
+      errors.push(`${attempt.provider}/${attempt.model}: ${error instanceof Error ? error.message : "network error"}`);
     }
   }
 
@@ -520,9 +617,9 @@ export function streamCompletion(
         }
       };
 
-      let resolved: ResolvedProvider;
+      let attempts: Attempt[];
       try {
-        resolved = resolveProvider();
+        attempts = buildAttempts(options);
         await requireTokens(context.userId);
       } catch (error) {
         send({ type: "error", message: error instanceof Error ? error.message : "AI not configured" });
@@ -530,19 +627,24 @@ export function streamCompletion(
         return;
       }
 
-      const attempts = buildAttempts(options);
+      if (attempts.length === 0) {
+        send({ type: "error", message: "No model provider is configured." });
+        finish();
+        return;
+      }
+
       const errors: string[] = [];
       let succeeded = false;
 
-      for (const model of attempts) {
+      for (const attempt of attempts) {
         try {
-          const response = await postChat(resolved, model, options, true);
+          const response = await postChat(attempt, attempt.model, options, true);
           if (!response.ok || !response.body) {
-            errors.push(`${model}: ${await readError(response)}`);
+            errors.push(`${attempt.provider}/${attempt.model}: ${await readError(response)}`);
             continue;
           }
 
-          send({ type: "meta", model, provider: resolved.provider });
+          send({ type: "meta", model: attempt.model, provider: attempt.provider });
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -551,7 +653,7 @@ export function streamCompletion(
           let promptTokens = 0;
           let completionTokens = 0;
           let citations: { title: string; url: string }[] = [];
-          let finalModel = model;
+          let finalModel = attempt.model;
 
           for (;;) {
             const { done, value } = await reader.read();
@@ -600,12 +702,12 @@ export function streamCompletion(
             promptTokens,
             completionTokens,
             totalTokens: promptTokens + completionTokens,
-            costUsd: estimateCost(finalModel, promptTokens, completionTokens),
+            costUsd: callCostUsd(attempt.provider, finalModel, promptTokens, completionTokens),
           };
 
           await logRun({
             context,
-            provider: resolved.provider,
+            provider: attempt.provider,
             model: finalModel,
             usage,
             latencyMs: Date.now() - startedAt,
@@ -623,21 +725,21 @@ export function streamCompletion(
           send({
             type: "done",
             model: finalModel,
-            provider: resolved.provider,
+            provider: attempt.provider,
             usage: publicUsage(usage),
             citations,
           });
           succeeded = true;
           break;
         } catch (error) {
-          errors.push(`${model}: ${error instanceof Error ? error.message : "network error"}`);
+          errors.push(`${attempt.provider}/${attempt.model}: ${error instanceof Error ? error.message : "network error"}`);
         }
       }
 
       if (!succeeded) {
         await logRun({
           context,
-          provider: resolved.provider,
+          provider: attempts[0]?.provider ?? (process.env.AI_PROVIDER ?? "openrouter").toLowerCase(),
           model: "fallback-chain",
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: 0 },
           latencyMs: Date.now() - startedAt,

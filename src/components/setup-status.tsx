@@ -7,7 +7,14 @@ import { getJson } from "@/lib/client";
 
 type Health = {
   database: { ok: boolean; message: string };
-  ai: { ok: boolean; provider: string; researchModel: string; reasoningModel: string; issue: string | null };
+  ai: {
+    ok: boolean;
+    provider: string;
+    freeProvider?: string | null;
+    researchModel: string;
+    reasoningModel: string;
+    issue: string | null;
+  };
 };
 
 /** Tells a first-time user, before they type anything, whether the env is wired up. */
@@ -53,7 +60,7 @@ export function SetupStatus() {
           )}
           <span className={health.ai.ok ? "text-ink-2" : "text-bad"}>
             {health.ai.ok
-              ? `Models via ${health.ai.provider} — ${health.ai.reasoningModel}`
+              ? `Models via ${health.ai.provider}${health.ai.freeProvider ? ` · ${health.ai.freeProvider}` : ""} — ${health.ai.reasoningModel}`
               : (health.ai.issue ?? "Model provider not configured.")}
           </span>
         </li>

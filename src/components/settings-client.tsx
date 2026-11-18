@@ -20,7 +20,9 @@ type SettingsUser = {
 };
 
 const ENV_VARS: { name: string; description: string }[] = [
-  { name: "AI_PROVIDER", description: "Which provider serves model calls by default." },
+  { name: "GEMINI_API_KEY", description: "Direct Gemini key — its free daily quota is spent before any paid provider." },
+  { name: "GEMINI_FREE_TIER", description: "Set to false once the Gemini key is on a paid plan so list prices are recorded." },
+  { name: "AI_PROVIDER", description: "Which paid provider serves model calls after the free quota is used." },
   { name: "OPENROUTER_API_KEY", description: "Key for the OpenRouter gateway and its fallback chain." },
   { name: "PERPLEXITY_API_KEY", description: "Key for the grounded web-search tier (citations)." },
   { name: "OPENAI_API_KEY", description: "Optional direct key when OpenAI is the configured provider." },

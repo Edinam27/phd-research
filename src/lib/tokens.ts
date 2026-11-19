@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { tokenLedger, type LedgerKind } from "@/db/schema";
 import { users } from "@/db/schema";
+import { isAdministrator } from "@/lib/auth";
 
 /**
  * The studio's internal token economy.
@@ -129,17 +130,20 @@ export async function getTokenBalance(userId: string): Promise<number> {
   return Number(rows[0]?.balance ?? 0);
 }
 
-/** Throws when the balance cannot cover a model call's reserve. Admin users bypass this check. */
+/** Throws when the balance cannot cover a model call's reserve. Administrators never wait on a balance. */
 export async function requireTokens(userId: string): Promise<void> {
-  // Check if user is admin
+  // An administrator is whoever the DB flag OR ADMIN_EMAILS says is one — the
+  // same rule sessions use in isAdministrator() — and is never gated on tokens.
   const user = await db
-    .select({ isAdmin: users.isAdmin })
+    .select({ isAdmin: users.isAdmin, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (user[0]?.isAdmin) {
-    return; // Admin users have unlimited tokens
+  if (!user[0]) return;
+
+  if (isAdministrator({ email: user[0].email, isAdmin: user[0].isAdmin })) {
+    return;
   }
 
   const balance = await getTokenBalance(userId);

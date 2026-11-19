@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { tokenLedger, type LedgerKind } from "@/db/schema";
+import { users } from "@/db/schema";
 
 /**
  * The studio's internal token economy.
@@ -128,8 +129,19 @@ export async function getTokenBalance(userId: string): Promise<number> {
   return Number(rows[0]?.balance ?? 0);
 }
 
-/** Throws when the balance cannot cover a model call's reserve. */
+/** Throws when the balance cannot cover a model call's reserve. Admin users bypass this check. */
 export async function requireTokens(userId: string): Promise<void> {
+  // Check if user is admin
+  const user = await db
+    .select({ isAdmin: users.isAdmin })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (user[0]?.isAdmin) {
+    return; // Admin users have unlimited tokens
+  }
+
   const balance = await getTokenBalance(userId);
   if (balance < MIN_BALANCE_TOKENS) {
     throw new InsufficientTokensError(

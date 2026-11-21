@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Alert, Button, Field, Input } from "@/components/ui";
-import { ApiError, postJson } from "@/lib/client";
+import { ApiError, getJson, postJson } from "@/lib/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,8 +29,16 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    window.location.href = "/api/auth/google";
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleBusy(true);
+    try {
+      const { authUrl } = await getJson<{ authUrl: string }>("/api/auth/google");
+      window.location.href = authUrl;
+    } catch (thrown) {
+      setError(thrown instanceof ApiError ? thrown.message : "Could not start Google sign-in. Try again.");
+      setGoogleBusy(false);
+    }
   };
 
   return (
@@ -83,6 +92,7 @@ export default function LoginPage() {
         size="lg"
         className="w-full justify-center gap-2"
         onClick={handleGoogleSignIn}
+        loading={googleBusy}
       >
         <svg className="size-5" viewBox="0 0 24 24">
           <path
@@ -102,7 +112,7 @@ export default function LoginPage() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.97 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <span>Continue with Google</span>
+        <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
       </Button>
 
       <p className="mt-6 text-[13px] text-muted text-center">

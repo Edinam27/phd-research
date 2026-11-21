@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { aiRuns } from "@/db/schema";
-import { requireTokens, spendTokens } from "@/lib/tokens";
+import { InsufficientTokensError, requireTokens, spendTokens } from "@/lib/tokens";
 import { estimateTokens } from "@/lib/utils";
 
 /**
@@ -622,7 +622,12 @@ export function streamCompletion(
         attempts = buildAttempts(options);
         await requireTokens(context.userId);
       } catch (error) {
-        send({ type: "error", message: error instanceof Error ? error.message : "AI not configured" });
+        const isTokenGate = error instanceof InsufficientTokensError;
+        send({
+          type: "error",
+          code: isTokenGate ? "insufficient_tokens" : undefined,
+          message: error instanceof Error ? error.message : "AI not configured",
+        });
         finish();
         return;
       }

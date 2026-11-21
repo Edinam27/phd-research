@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { tokenLedger } from "@/db/schema";
 import { fail, ok, toErrorResponse } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { GHS_PER_USD_RATE, getTokenBalance, TOKEN_PACKS } from "@/lib/tokens";
+import { GHS_PER_USD_RATE, getTokenBalance, LOW_BALANCE_ALERT_TOKENS, TOKEN_PACKS } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -49,6 +49,8 @@ export async function GET() {
     return ok({
       balance,
       packs: TOKEN_PACKS,
+      /** At or below this the UI nags to top up; never below the hard reserve. */
+      lowBalanceAlert: LOW_BALANCE_ALERT_TOKENS,
       checkout: {
         currency: checkoutCurrency,
         /** Dollars per unit of the checkout currency; 1 when charging in USD. */

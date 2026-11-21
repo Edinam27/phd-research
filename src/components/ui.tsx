@@ -6,9 +6,14 @@ import { cn } from "@/lib/utils";
 /* Buttons                                                             */
 /* ------------------------------------------------------------------ */
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "ink";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 
+/**
+ * Button variants follow the 60-30-10 palette contract in globals.css:
+ * primary is the ONLY action colour (accent, the 10%); secondary and ghost
+ * stay neutral; danger is reserved for destructive actions.
+ */
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
     "bg-accent text-white hover:bg-accent-2 border border-accent hover:border-accent-2 shadow-sm disabled:bg-accent/60",
@@ -16,7 +21,6 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
     "bg-card text-ink border border-line-2 hover:border-ink/40 hover:bg-paper-2 disabled:text-muted",
   ghost: "bg-transparent text-ink-2 border border-transparent hover:bg-paper-2 hover:border-line",
   danger: "bg-bad text-white border border-bad hover:bg-bad/90 shadow-sm",
-  ink: "bg-ink text-white border border-ink hover:bg-ink-3",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {

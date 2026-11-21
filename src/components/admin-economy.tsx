@@ -168,8 +168,8 @@ export function TokenEconomyView({
                   className={cn(
                     "rounded-sm border px-2.5 py-1 font-mono text-[11.5px] tabular-nums transition-colors",
                     Number(tokens) === preset
-                      ? "border-ink bg-ink text-white"
-                      : "border-line-2 bg-card text-ink-2 hover:border-ink/40",
+                      ? "border-accent bg-accent text-white"
+                      : "border-line-2 bg-card text-ink-2 hover:border-accent/40",
                   )}
                 >
                   {numberFormat.format(preset)}

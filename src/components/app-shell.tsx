@@ -20,6 +20,8 @@ import { cn, initials } from "@/lib/utils";
 import { postJson, getJson } from "@/lib/client";
 import type { NotebookSummary } from "@/lib/types";
 import { Badge, Button, Spinner } from "@/components/ui";
+import { TokenExhaustedModal } from "@/components/token-exhausted-modal";
+import { LowBalanceBanner } from "@/components/low-balance-banner";
 
 export type ShellUser = {
   id: string;
@@ -109,7 +111,9 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
               href={item.href}
               className={cn(
                 "flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-[13.5px] transition-colors",
-                active ? "bg-ink-3 text-white" : "text-ink-muted hover:bg-ink-2 hover:text-white",
+                active
+                  ? "bg-accent text-white"
+                  : "text-ink-muted hover:bg-ink-2 hover:text-white",
               )}
             >
               <item.icon className="size-4 shrink-0" />
@@ -229,8 +233,12 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           </Badge>
         </header>
 
+        <LowBalanceBanner isAdmin={user.isAdmin} />
+
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      <TokenExhaustedModal />
     </div>
   );
 }

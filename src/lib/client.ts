@@ -1,5 +1,20 @@
 /** Browser-side fetch helpers. Every API route answers with JSON or an SSE frame stream. */
 
+/**
+ * Fired whenever the token gate fires — hard (balance empty, a call was
+ * refused) or soft (the low-balance banner's Top up button). The global
+ * TokenExhaustedModal listens for this and opens the payment popup;
+ * components never open it themselves.
+ */
+export const TOKENS_EXHAUSTED_EVENT = "kadi:tokens-exhausted";
+
+export type TokensExhaustedReason = "empty" | "low";
+
+export function notifyTokensExhausted(reason: TokensExhaustedReason = "empty"): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(TOKENS_EXHAUSTED_EVENT, { detail: { reason } }));
+}
+
 export class ApiError extends Error {
   status: number;
   issues: { path: string; message: string }[];
@@ -42,6 +57,8 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
       (response.status === 401
         ? "Your session has expired. Sign in again."
         : `Request failed with status ${response.status}.`);
+    // 402 Payment Required is the token gate: surface the top-up popup.
+    if (response.status === 402) notifyTokensExhausted();
     throw new ApiError(message, response.status, payload);
   }
 
@@ -71,7 +88,7 @@ export type SseFrame =
   | { type: "meta"; model: string; provider: string }
   | { type: "delta"; text: string }
   | { type: "done"; model: string; provider: string; usage: SseUsage; citations: SseCitation[] }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: "insufficient_tokens" };
 
 export type SseUsage = {
   promptTokens: number;
@@ -144,7 +161,10 @@ export async function streamSse(
       if (frame.type === "delta") handlers.onDelta?.(frame.text);
       else if (frame.type === "meta") handlers.onMeta?.(frame);
       else if (frame.type === "done") handlers.onDone?.(frame);
-      else if (frame.type === "error") handlers.onError?.(frame.message);
+      else if (frame.type === "error") {
+        if (frame.code === "insufficient_tokens") notifyTokensExhausted();
+        handlers.onError?.(frame.message);
+      }
     }
   }
 }

@@ -212,8 +212,8 @@ export function AdminClient() {
                   className={cn(
                     "rounded-sm border px-3 py-1.5 text-[13px] transition-colors",
                     view === entry.value
-                      ? "border-ink bg-ink text-white"
-                      : "border-line-2 bg-card text-ink-2 hover:border-ink/40",
+                      ? "border-accent bg-accent text-white"
+                      : "border-line-2 bg-card text-ink-2 hover:border-accent/40",
                   )}
                 >
                   {entry.label}

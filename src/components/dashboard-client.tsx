@@ -247,8 +247,8 @@ export function DashboardClient({
               className={cn(
                 "rounded-sm border px-3 py-1.5 text-[13px] transition-colors",
                 createMode === mode.value
-                  ? "border-ink bg-ink text-white"
-                  : "border-line-2 bg-card text-ink-2 hover:border-ink/40",
+                  ? "border-accent bg-accent text-white"
+                  : "border-line-2 bg-card text-ink-2 hover:border-accent/40",
               )}
             >
               {mode.label}
@@ -349,8 +349,8 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
   const roleTone = notebook.role === "owner" ? "neutral" : notebook.role === "editor" ? "accent" : "warn";
 
   return (
-    <Card className="flex flex-col transition-shadow hover:shadow-[0_2px_12px_rgba(16,19,25,0.08)]">
-      <Link href={`/notebooks/${notebook.id}`} className="flex flex-1 flex-col p-5">
+    <Card className="flex min-w-0 flex-col transition-shadow hover:shadow-[0_2px_12px_rgba(16,19,25,0.08)]">
+      <Link href={`/notebooks/${notebook.id}`} className="flex min-w-0 flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-[15px] font-semibold tracking-tight text-ink">{notebook.title}</p>
@@ -358,14 +358,18 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
               {notebook.researchArea ?? notebook.targetJournal ?? "No area recorded yet"}
             </p>
           </div>
-          <Badge tone={STAGE_TONE[notebook.status] ?? "neutral"}>{notebook.status}</Badge>
+          <Badge tone={STAGE_TONE[notebook.status] ?? "neutral"} className="shrink-0">
+            {notebook.status}
+          </Badge>
         </div>
 
         {notebook.description ? (
-          <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-ink-2">{notebook.description}</p>
+          <p className="mt-3 line-clamp-2 break-words text-[13px] leading-relaxed text-ink-2">
+            {notebook.description}
+          </p>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
           <Badge>{studyLabel}</Badge>
           <Badge>{researchLabel}</Badge>
           <Badge tone={roleTone}>{notebook.role}</Badge>
@@ -374,7 +378,7 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
           ) : null}
         </div>
 
-        <div className="mt-auto grid grid-cols-3 gap-3 border-t border-line pt-4">
+        <div className="mt-auto grid min-w-0 grid-cols-3 gap-3 border-t border-line pt-4">
           <Metric label="Articles" value={notebook.reviewCount} icon={<BookOpenCheck className="size-3.5" />} />
           <Metric label="Drafts" value={notebook.manuscriptCount} icon={<FileText className="size-3.5" />} />
           <Metric label="Tokens used" value={formatTokens(notebook.spendTokens)} />
@@ -382,8 +386,12 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
       </Link>
 
       <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-2.5">
-        <span className="text-[11.5px] text-muted">Updated {formatDate(notebook.updatedAt)}</span>
-        <span className="text-[11.5px] text-muted">{notebook.researchObjectives.length} objectives</span>
+        <span className="min-w-0 truncate text-[11.5px] text-muted">
+          Updated {formatDate(notebook.updatedAt)}
+        </span>
+        <span className="shrink-0 text-[11.5px] text-muted">
+          {notebook.researchObjectives.length} objectives
+        </span>
       </div>
     </Card>
   );
@@ -391,12 +399,12 @@ function NotebookCard({ notebook }: { notebook: NotebookSummary }) {
 
 function Metric({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
         {icon}
         {label}
       </p>
-      <p className="mt-1 text-[15px] font-semibold tabular-nums text-ink">{value}</p>
+      <p className="mt-1 truncate text-[15px] font-semibold tabular-nums text-ink">{value}</p>
     </div>
   );
 }

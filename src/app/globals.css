@@ -3,6 +3,16 @@
 /* ------------------------------------------------------------------ */
 /* Design tokens — an editorial "research studio" palette.             */
 /* Warm paper canvas, deep-ink chrome, cobalt accent, serif manuscript. */
+/*                                                                     */
+/* Colour contract: 60-30-10.                                          */
+/*   60%  dominant  — paper / paper-2 / card: the neutral canvas       */
+/*                     everything sits on.                             */
+/*   30%  secondary — ink chrome: dark surfaces (sidebar, headers),    */
+/*                     text inks, lines and borders.                   */
+/*   10%  accent    — cobalt, reserved for action and attention ONLY:  */
+/*                     primary buttons, active tabs and toggles,       */
+/*                     selected states, focus rings, key links.        */
+/*   (good/warn/bad are semantic states, not part of the split.)       */
 /* ------------------------------------------------------------------ */
 
 @theme {

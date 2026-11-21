@@ -90,6 +90,16 @@ export const STARTER_GRANT_TOKENS = Number(process.env.STARTER_GRANT_TOKENS ?? 1
 /** Block model calls once the balance falls to or below this reserve. */
 export const MIN_BALANCE_TOKENS = 200;
 
+/**
+ * Warn the user their balance is running low at or below this level — 10% of
+ * the starter grant by default, but never below the hard reserve, so the
+ * warning always has room to act on before calls are blocked.
+ */
+export const LOW_BALANCE_ALERT_TOKENS = Math.max(
+  MIN_BALANCE_TOKENS,
+  Math.round(STARTER_GRANT_TOKENS * 0.1),
+);
+
 export type LedgerInput = {
   userId: string;
   kind: LedgerKind;

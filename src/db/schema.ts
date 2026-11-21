@@ -22,17 +22,23 @@ export const users = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email").notNull(),
     name: text("name").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    passwordHash: text("password_hash"),
     institution: text("institution"),
     discipline: text("discipline"),
     /** PhD candidate, supervisor, lecturer, researcher ... */
     academicRole: text("academic_role").default("PhD Candidate"),
     /** Sees every user and every workspace in the studio, read-only. */
     isAdmin: boolean("is_admin").default(false).notNull(),
+    /** Google OAuth */
+    googleId: text("google_id"),
+    avatarUrl: text("avatar_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("users_email_unique").on(table.email)],
+  (table) => [
+    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_google_id_unique").on(table.googleId),
+  ],
 );
 
 export const sessions = pgTable(

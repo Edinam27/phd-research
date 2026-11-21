@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       .limit(1);
 
     const user = rows[0];
-    if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+    if (!user || !user.passwordHash || !(await verifyPassword(body.password, user.passwordHash))) {
       return fail("Email or password is incorrect.", 401);
     }
 

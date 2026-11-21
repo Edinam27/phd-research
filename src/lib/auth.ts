@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import bcrypt from "bcryptjs";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -10,6 +10,72 @@ import { sessions, users, type User } from "@/db/schema";
 
 export const SESSION_COOKIE = "phd_studio_session";
 const SESSION_TTL_DAYS = 30;
+
+/** Google OAuth configuration */
+export const GOOGLE_OAUTH_CONFIG = {
+  clientId: process.env.GOOGLE_CLIENT_ID!,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  redirectUri: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3111"}/api/auth/google/callback`,
+  scopes: ["openid", "email", "profile"],
+};
+
+export function getGoogleAuthUrl(state: string): string {
+  const params = new URLSearchParams({
+    client_id: GOOGLE_OAUTH_CONFIG.clientId,
+    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri,
+    response_type: "code",
+    scope: GOOGLE_OAUTH_CONFIG.scopes.join(" "),
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+export async function exchangeGoogleCode(code: string): Promise<{
+  access_token: string;
+  refresh_token?: string;
+  id_token: string;
+}> {
+  const params = new URLSearchParams({
+    code,
+    client_id: GOOGLE_OAUTH_CONFIG.clientId,
+    client_secret: GOOGLE_OAUTH_CONFIG.clientSecret,
+    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri,
+    grant_type: "authorization_code",
+  });
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Google token exchange failed: ${error}`);
+  }
+
+  return response.json();
+}
+
+export async function verifyGoogleIdToken(idToken: string): Promise<{
+  sub: string;
+  email: string;
+  name: string;
+  picture?: string;
+  email_verified: boolean;
+}> {
+  const response = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+  );
+
+  if (!response.ok) {
+    throw new Error("Invalid Google ID token");
+  }
+
+  return response.json();
+}
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");

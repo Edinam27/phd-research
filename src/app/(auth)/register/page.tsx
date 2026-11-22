@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Lock, User } from "lucide-react";
 
+import { SmokeyBackground } from "@/components/ui/login-form";
 import { ApiError, getJson, postJson } from "@/lib/client";
 import { Alert, Button, Field, Input, Select } from "@/components/ui";
 
@@ -71,6 +72,7 @@ export default function RegisterPage() {
 
   return (
     <div className="relative -mx-6 -my-10 flex min-h-[70vh] flex-1 items-center justify-center overflow-hidden bg-ink px-6 py-12 sm:-mx-12 sm:px-12">
+      <SmokeyBackground color="#2f4fd8" />
       <h1 className="absolute top-0 left-0 -mx-6 sm:-mx-12 px-6 sm:px-12 py-6 sm:py-10 z-10 flex items-center gap-2.5 lg:hidden">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="grid size-8 place-items-center rounded-sm bg-accent font-serif text-sm font-semibold text-white">

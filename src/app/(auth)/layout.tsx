@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { SetupStatus } from "@/components/setup-status";
-
 const WORKFLOW = [
   {
     step: "01",
@@ -74,7 +72,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="font-serif text-base tracking-tight">Kadi Research Studio</span>
           </Link>
           {children}
-          <SetupStatus />
         </div>
       </div>
     </div>

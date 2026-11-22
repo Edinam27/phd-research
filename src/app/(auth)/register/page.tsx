@@ -78,7 +78,7 @@ export default function RegisterPage() {
           <span className="grid size-8 place-items-center rounded-sm bg-accent font-serif text-sm font-semibold text-white">
             K
           </span>
-          <span className="font-serif text-sm tracking-tight">Kadi Research Studio</span>
+          <span className="font-serif text-sm tracking-tight text-white">Kadi Research Studio</span>
         </div>
         <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
           <div className="text-center">

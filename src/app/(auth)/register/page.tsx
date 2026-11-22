@@ -73,16 +73,14 @@ export default function RegisterPage() {
   return (
     <div className="relative -mx-6 -my-10 flex min-h-[70vh] flex-1 items-center justify-center overflow-hidden bg-ink px-6 py-12 sm:-mx-12 sm:px-12">
       <SmokeyBackground color="#2f4fd8" />
-      <h1 className="absolute top-0 left-0 -mx-6 sm:-mx-12 px-6 sm:px-12 py-6 sm:py-10 z-10 flex items-center gap-2.5 lg:hidden">
-        <Link href="/" className="flex items-center gap-2.5">
+      <SmokeyBackground color="#2f4fd8" />
+      <div className="relative z-10 flex w-full flex-col items-center justify-center">
+        <div className="mb-4 flex items-center gap-2">
           <span className="grid size-8 place-items-center rounded-sm bg-accent font-serif text-sm font-semibold text-white">
             K
           </span>
-          <span className="font-serif text-base tracking-tight">Kadi Research Studio</span>
-        </Link>
-      </h1>
-
-      <div className="relative z-10 flex w-full justify-center">
+          <span className="font-serif text-sm tracking-tight">Kadi Research Studio</span>
+        </div>
         <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
           <div className="text-center">
             <h2 className="font-serif text-3xl tracking-tight text-white">Create account</h2>

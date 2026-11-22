@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-ink px-12 py-12 text-white lg:flex xl:w-[55%]">
         <div className="grid-paper pointer-events-none absolute inset-0 opacity-[0.06]" />
         <div className="relative">
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-2.5">
             <span className="grid size-9 place-items-center rounded-sm bg-accent font-serif text-base font-semibold">
               K
             </span>

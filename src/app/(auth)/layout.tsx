@@ -37,7 +37,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           <h1 className="mt-14 max-w-xl font-serif text-[2.6rem] leading-[1.12] tracking-tight">
-            Turn a stack of articles into a defended literature review — and a draft you can submit.
+            Turn a stack of articles into a defended literature review and a draft you can submit
           </h1>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-muted">
             Built around two documents you already have: your review taxonomy and your journal&apos;s publication

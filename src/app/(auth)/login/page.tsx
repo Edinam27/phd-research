@@ -16,7 +16,7 @@ export default function LoginPage() {
           <span className="grid size-8 place-items-center rounded-sm bg-accent font-serif text-sm font-semibold text-white">
             K
           </span>
-          <span className="font-serif text-sm tracking-tight">Kadi Research Studio</span>
+          <span className="font-serif text-sm tracking-tight text-accent">Kadi Research Studio</span>
         </div>
         <LoginForm />
       </div>

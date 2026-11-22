@@ -1,0 +1,26 @@
+# Kadi Research Studio
+
+> Kadi Research Studio turns journal PDFs and DOCX drafts into a structured literature review: an eleven-column evidence matrix, a field synthesis, and publication-ready drafts written to your journal's own guideline. Built for PhD candidates and their supervisors.
+
+Kadi is a web research studio for doctoral work. It automates the tabulating — reading each article into a fixed taxonomy, filling an evidence matrix, synthesising themes and gaps — while the researcher keeps the appraisal and the judgement. Manuscripts and proposals are drafted section-by-section against a journal's publication guideline, with word budgets and checklists enforced and audited before submission.
+
+## Key facts
+
+- Eleven-column evidence matrix per article (Author, Year, Title, Journal, Problems/Gaps, Objectives, Theory, Empirical findings, Methodology, Key Findings, Limitations).
+- Every claim the AI writes is grounded in articles the researcher actually reviewed; unread citations are flagged, never fabricated.
+- PDFs are read in the browser, not uploaded — the binary never leaves the user's machine.
+- Prepaid token pricing; every account starts with 100,000 free tokens.
+- Built for quantitative, qualitative and mixed-methods research, and for articles, proposals and abstracts.
+
+## Key pages
+
+- [Home](https://kadistudio.app/): Overview of the studio and its workflow.
+- [How it works](https://kadistudio.app/how-it-works): The four-step path from PDF stack to submitted manuscript.
+- [Pricing](https://kadistudio.app/pricing): Prepaid token packs and the free starter grant.
+- [Why Kadi](https://kadistudio.app/why-kadi): How Kadi differs from generic AI writing tools.
+- [FAQ](https://kadistudio.app/faq): Common questions on the evidence matrix, drafting, collaboration and pricing.
+- [Blog](https://kadistudio.app/blog): Guides on evidence matrices, research synthesis and writing to journal guidelines.
+
+## Contact
+
+- Email: support@kadistudio.app

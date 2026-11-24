@@ -1,3 +1,5 @@
+import { appOrigin } from "@/lib/auth";
+
 /**
  * Central site metadata and SEO constants.
  *
@@ -11,8 +13,30 @@ export const SITE_TAGLINE = "Literature reviews, defended.";
 export const SITE_DESCRIPTION =
   "Kadi Research Studio turns your journal PDFs and DOCX drafts into a structured literature review — an eleven-column evidence matrix, a field synthesis, and publication-ready drafts written to your journal's own guideline. Built for PhD candidates and their supervisors.";
 
-/** Set APP_URL in the environment; the sitemap and canonical tags need an absolute origin. */
-export const SITE_URL = (process.env.APP_URL ?? "http://localhost:3111").replace(/\/$/, "");
+/**
+ * The origin the sitemap and canonical tags publish.
+ *
+ * An explicit `APP_URL` wins. Without one — the default on Vercel, where
+ * `SITE_URL` is evaluated at build time and no request exists — the site falls
+ * back to the deployment's own host from `VERCEL_URL` (or
+ * `VERCEL_PROJECT_PRODUCTION_URL`) instead of the loopback default, so a
+ * production build never publishes localhost URLs in metadata, robots.txt or
+ * the sitemap.
+ */
+function resolveSiteUrl(): string {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const deploymentHost =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ??
+    process.env.VERCEL_URL?.trim() ??
+    process.env.VERCEL_BRANCH_URL?.trim();
+  if (deploymentHost) return `https://${deploymentHost.replace(/\/+$/, "")}`;
+
+  return appOrigin();
+}
+
+export const SITE_URL = resolveSiteUrl();
 
 export const SITE_KEYWORDS = [
   "literature review software",

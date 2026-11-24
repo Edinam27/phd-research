@@ -18,6 +18,11 @@ import { estimateTokens } from "@/lib/utils";
 
 export type AiProvider = "gemini" | "openrouter" | "perplexity" | "openai";
 export type ModelTier = "reasoning" | "research" | "fast";
+/**
+ * Tiers a call can ask for. `manuscript` is the pinned writing tier: it always
+ * runs `MANUSCRIPT_MODEL` and never falls through to another model.
+ */
+export type Tier = ModelTier | "manuscript";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -84,6 +89,12 @@ const PRICE_TABLE: Record<string, { input: number; output: number }> = {
   "gemini-2.5-flash": { input: 0.3, output: 2.5 },
   "google/gemini-2.5-flash-lite": { input: 0.1, output: 0.4 },
   "gemini-2.5-flash-lite": { input: 0.1, output: 0.4 },
+  // Gemini 3.1 Flash Lite — the studio's manuscript-writing model. The `:batch`
+  // variant is the same model at half price; `:preview` carries the list price.
+  "google/gemini-3.1-flash-lite": { input: 0.25, output: 1.5 },
+  "google/gemini-3.1-flash-lite:batch": { input: 0.125, output: 0.75 },
+  "google/gemini-3.1-flash-lite-preview": { input: 0.25, output: 1.5 },
+  "gemini-3.1-flash-lite": { input: 0.25, output: 1.5 },
   "gemini-flash-latest": { input: 0.3, output: 2.5 },
   "gemini-3.8-flash": { input: 0.3, output: 2.5 },
   "gemini-flash-lite-latest": { input: 0.1, output: 0.4 },
@@ -203,8 +214,12 @@ export function resolveProvider(): ResolvedProvider {
  * grounded provider (built-in web search) first so literature claims still
  * come back with real citations. A missing primary is tolerated when Gemini
  * is configured, so the studio still works with a Gemini key alone.
+ *
+ * The manuscript tier is different on purpose: it is pinned to
+ * `MANUSCRIPT_MODEL` and never falls through to a different model, so every
+ * draft in a manuscript comes from the same writer.
  */
-export function resolveProviders(tier: ModelTier): ResolvedProvider[] {
+export function resolveProviders(tier: ModelTier | "manuscript"): ResolvedProvider[] {
   const gemini = geminiProvider();
   let primary: ResolvedProvider | null = null;
   try {
@@ -214,6 +229,15 @@ export function resolveProviders(tier: ModelTier): ResolvedProvider[] {
   }
 
   if (tier === "research") {
+    const list = primary ? [primary] : [];
+    if (gemini) list.push(gemini);
+    return list;
+  }
+
+  if (tier === "manuscript") {
+    // The manuscript model is an OpenRouter model id, so the pinned model
+    // belongs to whichever provider serves it. Prefer the primary, but fall
+    // back to Gemini when that is all that is configured.
     const list = primary ? [primary] : [];
     if (gemini) list.push(gemini);
     return list;
@@ -234,9 +258,16 @@ function envModels(key: string, fallback: string[]): string[] {
 }
 
 /** Ordered attempt list for one tier on one provider — the first model that answers wins. */
-export function modelsForTier(tier: ModelTier, provider: AiProvider): string[] {
+export function modelsForTier(tier: Tier, provider: AiProvider): string[] {
   const openrouterStyle = provider === "openrouter" || provider === "perplexity";
   const envFallbacks = openrouterStyle ? envModels("AI_FALLBACK_MODELS", []) : [];
+
+  if (tier === "manuscript") {
+    // One writer, always. When the pinned model is not served by this provider
+    // the attempt list is empty and the chain moves to the next provider.
+    const pinned = manuscriptModels();
+    return provider === "openrouter" || provider === "perplexity" ? pinned : [];
+  }
 
   if (provider === "gemini") {
     // The flash-lite tier answers reliably on the OpenAI-compatible endpoint
@@ -287,6 +318,22 @@ export function modelsForTier(tier: ModelTier, provider: AiProvider): string[] {
   ];
 }
 
+/**
+ * The studio writes manuscripts with one model: Gemini 3.1 Flash Lite. It is
+ * pinned here rather than left to a tier so the reasoning model can never
+ * change under the manuscript — the draft prompts, the word budgets and the
+ * export all assume one consistent voice. A deployment can still override it
+ * with MANUSCRIPT_MODEL (comma separated, first that answers wins).
+ */
+export const MANUSCRIPT_MODEL = "google/gemini-3.1-flash-lite:batch";
+
+/** Model list for manuscript writing: the pinned model, then anything configured. */
+export function manuscriptModels(): string[] {
+  const configured = envModels("MANUSCRIPT_MODEL", [MANUSCRIPT_MODEL]);
+  const reasoning = envModels("AI_MODEL_REASONING", []);
+  return Array.from(new Set([...configured, ...reasoning]));
+}
+
 export function estimateCost(model: string, promptTokens: number, completionTokens: number): number {
   const price = PRICE_TABLE[model] ?? DEFAULT_PRICE;
   const cost =
@@ -310,6 +357,8 @@ export function aiStatus(): {
   freeProvider: string | null;
   researchModel: string;
   reasoningModel: string;
+  /** The pinned model every manuscript section is written by. */
+  manuscriptModel: string;
   issue: string | null;
 } {
   let providerLabel = "not configured";
@@ -329,13 +378,14 @@ export function aiStatus(): {
     freeProvider: gemini ? "gemini (free daily quota first)" : null,
     researchModel: modelsForTier("research", primaryIssue && gemini ? "gemini" : "openrouter")[0] ?? "—",
     reasoningModel: modelsForTier("reasoning", gemini ? "gemini" : "openrouter")[0] ?? "—",
+    manuscriptModel: manuscriptModels()[0] ?? MANUSCRIPT_MODEL,
     issue: configured ? null : (primaryIssue ?? "No model provider is configured."),
   };
 }
 
 type CallOptions = {
   messages: ChatMessage[];
-  tier?: ModelTier;
+  tier?: Tier;
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -357,7 +407,11 @@ async function postChat(
   };
 
   if (resolved.provider === "openrouter") {
-    headers["HTTP-Referer"] = process.env.APP_URL ?? "http://localhost:3000";
+    // OpenRouter uses this to attribute traffic; it should be the public origin.
+    // Unset in production (APP_URL blank on Vercel) the header is simply omitted
+    // rather than advertising a localhost referer for live traffic.
+    const referer = process.env.APP_URL?.trim().replace(/\/+$/, "");
+    if (referer) headers["HTTP-Referer"] = referer;
     headers["X-Title"] = "Kadi Research Studio";
   }
 
@@ -384,7 +438,7 @@ function buildAttempts(options: CallOptions): Attempt[] {
     const primary = resolveProvider();
     return [{ ...primary, model: options.model }];
   }
-  const tiers: ModelTier[] = options.tier === "research" ? ["research"] : [options.tier ?? "reasoning"];
+  const tiers: Tier[] = options.tier === "research" ? ["research"] : [options.tier ?? "reasoning"];
   const attempts: Attempt[] = [];
   for (const tier of tiers) {
     for (const provider of resolveProviders(tier)) {

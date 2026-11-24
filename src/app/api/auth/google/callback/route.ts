@@ -56,7 +56,9 @@ export async function GET(request: Request) {
 
   try {
     // Exchange the one-time code for tokens (fails if code reused/expired).
-    const tokens = await exchangeGoogleCode(code);
+    // The same request resolves the same redirect URI that was sent at
+    // initiation; a mismatch here would make Google reject the exchange.
+    const tokens = await exchangeGoogleCode(code, request);
 
     if (!tokens.id_token) {
       console.error("[Google OAuth] No id_token in token response");

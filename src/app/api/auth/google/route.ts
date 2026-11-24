@@ -27,7 +27,9 @@ export async function GET(request: Request) {
       maxAge: 60 * 10, // 10 minutes
     });
 
-    const authUrl = getGoogleAuthUrl(state);
+    // Resolved from this request, so the redirect URI matches the deployment the
+    // user is actually on (Vercel preview, production, or localhost).
+    const authUrl = getGoogleAuthUrl(state, request);
     return ok({ authUrl });
   } catch (error) {
     console.error("[Google OAuth] Initiation failed:", error);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { fail, ok, readJson, toErrorResponse } from "@/lib/api";
-import { getCurrentUser } from "@/lib/auth";
+import { appOrigin, getCurrentUser } from "@/lib/auth";
 import { PaystackConfigError, PaystackRequestError, initializePurchase, newPurchaseReference } from "@/lib/paystack";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { checkoutAmount, findPack, writeLedgerEntry } from "@/lib/tokens";
@@ -31,7 +31,9 @@ export async function POST(request: Request) {
     // account's settlement currency — the cedi equivalent by default.
     const { amountMinor, currency } = checkoutAmount(pack);
     const reference = newPurchaseReference();
-    const origin = process.env.APP_URL ?? new URL(request.url).origin;
+    // Where Paystack sends the buyer back to. Derived from the request so it is
+    // the deployment the user is on, not a value frozen at build time.
+    const origin = appOrigin(request);
     const callbackUrl = `${origin}/tokens?ref=${encodeURIComponent(reference)}`;
 
     // The pending row exists before the redirect: nothing is credited until

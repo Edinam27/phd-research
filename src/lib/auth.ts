@@ -11,18 +11,63 @@ import { sessions, users, type User } from "@/db/schema";
 export const SESSION_COOKIE = "phd_studio_session";
 const SESSION_TTL_DAYS = 30;
 
+/**
+ * The public origin of the running app, without a trailing slash.
+ *
+ * An explicit `APP_URL` wins, because that is the address the product is
+ * actually served on (and what the sitemap and OpenRouter referer use). With no
+ * `APP_URL` — the default on Vercel, where the deployment URL is only known at
+ * request time — the origin is derived from the incoming request instead of
+ * falling back to localhost. That fallback is what sent the OAuth callback to
+ * `http://localhost:3111` in production, where Google then refused it.
+ */
+export function appOrigin(request?: Request): string {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  if (request) {
+    try {
+      const url = new URL(request.url);
+      // Behind Vercel's proxy `request.url` can carry the internal host, so the
+      // forwarded headers are the authority when they are present.
+      const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+      const proto =
+        request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ??
+        url.protocol.replace(":", "");
+      if (host) return `${proto}://${host}`;
+    } catch {
+      // Fall through to the loopback default.
+    }
+  }
+
+  return "https://phd-research-pi.vercel.app";
+}
+
+/**
+ * Where Google sends the user after consent. It must match an authorized
+ * redirect URI in the Google Cloud console exactly.
+ */
+export function googleRedirectUri(request?: Request): string {
+  return `${appOrigin(request)}/api/auth/google/callback`;
+}
+
 /** Google OAuth configuration */
 export const GOOGLE_OAUTH_CONFIG = {
   clientId: process.env.GOOGLE_CLIENT_ID!,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-  redirectUri: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3111"}/api/auth/google/callback`,
+  /**
+   * Resolved per request rather than at module load: the deployment's origin is
+   * only known when a request arrives, and a module-level constant would freeze
+   * whatever the first cold start happened to see.
+   */
+  getRedirectUri: googleRedirectUri,
   scopes: ["openid", "email", "profile"],
 };
 
-export function getGoogleAuthUrl(state: string): string {
+export function getGoogleAuthUrl(state: string, request?: Request): string {
   const params = new URLSearchParams({
     client_id: GOOGLE_OAUTH_CONFIG.clientId,
-    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri,
+    redirect_uri: googleRedirectUri(request),
     response_type: "code",
     scope: GOOGLE_OAUTH_CONFIG.scopes.join(" "),
     state,
@@ -32,7 +77,10 @@ export function getGoogleAuthUrl(state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function exchangeGoogleCode(code: string): Promise<{
+export async function exchangeGoogleCode(
+  code: string,
+  request?: Request,
+): Promise<{
   access_token: string;
   refresh_token?: string;
   id_token: string;
@@ -41,7 +89,9 @@ export async function exchangeGoogleCode(code: string): Promise<{
     code,
     client_id: GOOGLE_OAUTH_CONFIG.clientId,
     client_secret: GOOGLE_OAUTH_CONFIG.clientSecret,
-    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri,
+    // Must be byte-identical to the redirect_uri sent at initiation, or Google
+    // rejects the exchange — so both are resolved from the same request.
+    redirect_uri: googleRedirectUri(request),
     grant_type: "authorization_code",
   });
 

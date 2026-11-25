@@ -1,5 +1,10 @@
 import type { ChatMessage } from "./provider";
-import { renderBibliography, renderLibrary, type LibraryEntry } from "@/lib/references";
+import { manuscriptStyleBlock, PROSE_STYLE_COMPACT } from "./style";
+import {
+  renderBibliography,
+  renderLibrary,
+  type LibraryEntry,
+} from "@/lib/references";
 import { TAXONOMY_COLUMNS } from "@/lib/taxonomy";
 import type { GuidelineSection, StudyType } from "@/lib/guideline";
 import type { EvidenceReview } from "@/lib/manuscripts";
@@ -28,13 +33,21 @@ export const MAX_SOURCE_CHARS = Number(process.env.AI_MAX_INPUT_CHARS ?? 60000);
  * truncating purely from the front discarded exactly the material that shows
  * which works the article leans on.
  */
-export const MAX_SOURCE_TAIL_CHARS = Number(process.env.AI_MAX_TAIL_CHARS ?? 20000);
+export const MAX_SOURCE_TAIL_CHARS = Number(
+  process.env.AI_MAX_TAIL_CHARS ?? 20000,
+);
 
 /** Head plus tail of an over-long document, with the omitted middle marked. */
 export function windowSource(text: string): { text: string; elided: boolean } {
-  const tailChars = Math.max(0, Math.min(MAX_SOURCE_TAIL_CHARS, Math.floor(MAX_SOURCE_CHARS / 2)));
+  const tailChars = Math.max(
+    0,
+    Math.min(MAX_SOURCE_TAIL_CHARS, Math.floor(MAX_SOURCE_CHARS / 2)),
+  );
   if (text.length <= MAX_SOURCE_CHARS || tailChars === 0) {
-    return { text: text.slice(0, MAX_SOURCE_CHARS), elided: text.length > MAX_SOURCE_CHARS };
+    return {
+      text: text.slice(0, MAX_SOURCE_CHARS),
+      elided: text.length > MAX_SOURCE_CHARS,
+    };
   }
   const headChars = Math.max(0, MAX_SOURCE_CHARS - tailChars);
   return {
@@ -69,7 +82,7 @@ const ACADEMIC_RULES = `Non-negotiable rules:
 - Cite directly only works that appear in the supplied evidence matrix, in the form Author (Year) or (Author, Year). Never invent an author, year, journal or DOI.
 - A work you have not read yourself may only be cited as a secondary source — "Smith (2019, as cited in Jones, 2021)" — naming the article from the evidence matrix it was found in. Never present a secondary source as though you had read it.
 - Be specific. Prefer numbers, constructs, theory names and contexts over generic filler.
-- Never use the words "delve", "tapestry", "landscape of", "in today's world" or "it is worth noting".`;
+- Never use the words "delve", "tapestry", "landscape of", "in today's world" or "it is worth noting". Never write "plays a crucial role", "plays a pivotal role", "a testament to" or "underscores the importance of", and never stack three adjectives ("significant, meaningful, and substantial").`;
 
 /** Compact, token-efficient rendering of the notebook's study design. */
 export function notebookContext(notebook: NotebookLike): string {
@@ -79,9 +92,13 @@ export function notebookContext(notebook: NotebookLike): string {
     notebook.description ? `Scope: ${notebook.description}` : null,
     `Methodological orientation: ${notebook.studyType}`,
     notebook.context ? `Study context: ${notebook.context}` : null,
-    notebook.keyVariables?.length ? `Key variables: ${notebook.keyVariables.join(", ")}` : null,
+    notebook.keyVariables?.length
+      ? `Key variables: ${notebook.keyVariables.join(", ")}`
+      : null,
     notebook.theory ? `Adopted theory: ${notebook.theory}` : null,
-    notebook.researchProblem ? `Research problem: ${notebook.researchProblem}` : null,
+    notebook.researchProblem
+      ? `Research problem: ${notebook.researchProblem}`
+      : null,
     notebook.researchObjectives?.length
       ? `Specific objectives:\n${notebook.researchObjectives.map((objective, index) => `  ${index + 1}. ${objective}`).join("\n")}`
       : null,
@@ -104,15 +121,27 @@ export function renderEvidence(reviews: EvidenceReview[]): string {
         review.problemsGaps ? `  Problems/gaps: ${review.problemsGaps}` : null,
         review.objectives ? `  Objectives: ${review.objectives}` : null,
         review.theory ? `  Theory: ${review.theory}` : null,
-        review.empiricalFindings ? `  Prior empirical evidence reported: ${review.empiricalFindings}` : null,
+        review.empiricalFindings
+          ? `  Prior empirical evidence reported: ${review.empiricalFindings}`
+          : null,
         review.methodology ? `  Methodology: ${review.methodology}` : null,
         review.keyFindings ? `  Key findings: ${review.keyFindings}` : null,
         review.limitations ? `  Limitations: ${review.limitations}` : null,
-        review.keyVariables?.length ? `  Variables: ${review.keyVariables.join(", ")}` : null,
-        review.hypotheses?.length ? `  Hypotheses tested: ${review.hypotheses.join(" ; ")}` : null,
-        review.country ? `  Context: ${review.country}${review.context ? ` — ${review.context}` : ""}` : null,
-        review.overallScore ? `  Reviewer quality score: ${review.overallScore}/10 (${review.verdict})` : null,
-        review.useInManuscript ? `  How it will be used in the manuscript: ${review.useInManuscript}` : null,
+        review.keyVariables?.length
+          ? `  Variables: ${review.keyVariables.join(", ")}`
+          : null,
+        review.hypotheses?.length
+          ? `  Hypotheses tested: ${review.hypotheses.join(" ; ")}`
+          : null,
+        review.country
+          ? `  Context: ${review.country}${review.context ? ` — ${review.context}` : ""}`
+          : null,
+        review.overallScore
+          ? `  Reviewer quality score: ${review.overallScore}/10 (${review.verdict})`
+          : null,
+        review.useInManuscript
+          ? `  How it will be used in the manuscript: ${review.useInManuscript}`
+          : null,
       ].filter(Boolean);
       return parts.join("\n");
     })
@@ -121,7 +150,8 @@ export function renderEvidence(reviews: EvidenceReview[]): string {
 
 export function taxonomyFieldGuide(): string {
   return TAXONOMY_COLUMNS.map(
-    (column) => `  - "${column.field}": ${column.label}. ${column.hint}${column.kind === "long" ? " (write 2-5 sentences, dense and specific)" : ""}`,
+    (column) =>
+      `  - "${column.field}": ${column.label}. ${column.hint}${column.kind === "long" ? " (write 2-5 sentences, dense and specific)" : ""}`,
   ).join("\n");
 }
 
@@ -256,7 +286,16 @@ Return the JSON object now.`,
 
 export function manuscriptSectionMessages(input: {
   notebook: NotebookLike;
-  manuscript: Pick<Manuscript, "title" | "kind" | "studyType" | "targetJournal" | "abstract" | "keywords">;
+  manuscript: Pick<
+    Manuscript,
+    | "id"
+    | "title"
+    | "kind"
+    | "studyType"
+    | "targetJournal"
+    | "abstract"
+    | "keywords"
+  >;
   section: GuidelineSection;
   existingContent: string;
   evidence: EvidenceReview[];
@@ -266,13 +305,18 @@ export function manuscriptSectionMessages(input: {
 }): ChatMessage[] {
   const { section } = input;
   const budget =
-    section.wordMax > 0 ? `${section.wordMin}-${section.wordMax} words` : "as long as the content requires";
+    section.wordMax > 0
+      ? `${section.wordMin}-${section.wordMax} words`
+      : "as long as the content requires";
   const library = input.library ?? [];
   const isReferences = section.key === "references";
 
   const neighbours = (input.neighbouringSections ?? [])
     .filter((neighbour) => neighbour.content.trim().length > 0)
-    .map((neighbour) => `### ${neighbour.heading}\n${neighbour.content.slice(0, 3500)}`)
+    .map(
+      (neighbour) =>
+        `### ${neighbour.heading}\n${neighbour.content.slice(0, 3500)}`,
+    )
     .join("\n\n");
 
   const literature = isReferences
@@ -294,6 +338,8 @@ ${renderLibrary(library)}`
     {
       role: "system",
       content: `You are ghost-writing a PhD ${input.manuscript.kind === "proposal" ? "research proposal" : "journal manuscript"} to a fixed journal template. You write polished, publishable academic prose that a supervisor would accept with light editing.
+
+${manuscriptStyleBlock(input.manuscript.id)}
 
 Section to write: "${section.heading}"
 Hard word budget: ${budget}
@@ -405,6 +451,8 @@ Return STRICT JSON only:
 
 Ground every statement in the supplied matrix. Where the matrix is too thin to support a claim, say so in the relevant field instead of inventing it. Use author-year anchors. Hypothesis labels must be sequential and each hypothesis directional.
 
+${PROSE_STYLE_COMPACT}
+
 Keep the whole object inside a tight budget: at most 8 themes, 6 theories, 6 methods, 6 contexts, 6 consensus points, 5 contradictions, 8 gaps, 6 research questions, 6 hypotheses and 8 outline entries — the strongest ones, not every candidate. Two or three sentences per summary. Never put a literal line break inside a string. Finish the object: an answer that stops part-way through is discarded, so prefer a shorter complete answer over a longer unfinished one.
 
 ${ACADEMIC_RULES}`,
@@ -429,11 +477,15 @@ Return the JSON now.`,
 /* ------------------------------------------------------------------ */
 
 const RESEARCH_INTENTS: Record<string, string> = {
-  research: "Find current, citable evidence relevant to the question. Prioritise peer-reviewed journal articles from the last five years, and name the journals and years.",
-  theory: "Identify the theories and models used in this area, who propounded each one, and how recent studies have applied them.",
-  methodology: "Identify the standard designs, validated measurement scales, sample sizes and analysis techniques used for this kind of study, with sources.",
+  research:
+    "Find current, citable evidence relevant to the question. Prioritise peer-reviewed journal articles from the last five years, and name the journals and years.",
+  theory:
+    "Identify the theories and models used in this area, who propounded each one, and how recent studies have applied them.",
+  methodology:
+    "Identify the standard designs, validated measurement scales, sample sizes and analysis techniques used for this kind of study, with sources.",
   gap: "Identify what the literature has NOT yet examined — the open gaps, under-studied contexts and contradictions that remain unresolved.",
-  question: "Draft candidate research questions and hypotheses, and cite the evidence that makes each one defensible.",
+  question:
+    "Draft candidate research questions and hypotheses, and cite the evidence that makes each one defensible.",
 };
 
 export function researchMessages(input: {
@@ -458,6 +510,8 @@ Return STRICT JSON only:
 }
 
 Only list a source in keySources when you are confident it exists. If you are unsure of a citation's details, describe the finding without fabricating the reference and add it to the gaps field as a verification task.
+
+${PROSE_STYLE_COMPACT}
 
 ${ACADEMIC_RULES}`,
     },
@@ -486,7 +540,7 @@ export function assistantMessages(input: {
       role: "system",
       content: `You are the research assistant inside one PhD notebook. You know this notebook's study design and its literature matrix, and you answer only from them plus your general academic knowledge. You never invent citations. When a claim needs a source that is not in the matrix, say "[NEEDS SOURCE]" and describe what to look for.
 
-Be direct and practical. Answer as a supervisor would: short paragraphs, concrete next actions. Use markdown.
+Be direct and practical. Answer as a supervisor would: short paragraphs, concrete next actions. Use markdown. Keep the studio's prose voice — concrete and specific, never generic filler: no "delve", "It is worth noting", "plays a crucial role" or strings of praise adjectives, and a memorable formulation is welcome where it earns its place.
 
 Study design:
 ${notebookContext(input.notebook)}
@@ -561,7 +615,9 @@ export function draftSectionMapMessages(input: {
 }): ChatMessage[] {
   const windowed = windowSource(input.draftText);
   const sectionList = input.sections
-    .map((section) => `- ${section.key}: ${section.heading} — ${section.guidance}`)
+    .map(
+      (section) => `- ${section.key}: ${section.heading} — ${section.guidance}`,
+    )
     .join("\n");
 
   return [

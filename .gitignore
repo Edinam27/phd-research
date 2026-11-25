@@ -5,6 +5,11 @@ build
 .env
 .env.local
 .env*.local
+
+# OAuth / API credentials
+client_secret_*.json
+*.pem
+*.key
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
